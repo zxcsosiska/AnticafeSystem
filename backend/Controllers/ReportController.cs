@@ -69,17 +69,4 @@ public class ReportController : ControllerBase
         var tariffs = await _context.Tariffs.Where(t => t.IsActive).ToListAsync();
         return Ok(tariffs);
     }
-
-    [HttpPut("tariffs")]
-    public async Task<IActionResult> UpdateTariff([FromBody] Tariff tariff)
-    {
-        var existing = await _context.Tariffs.FindAsync(tariff.Id);
-        if (existing == null)
-            return NotFound();
-
-        existing.PricePerMinute = tariff.PricePerMinute;
-        await _context.SaveChangesAsync();
-
-        return Ok(new { message = "Тариф обновлён", price = existing.PricePerMinute });
-    }
 }

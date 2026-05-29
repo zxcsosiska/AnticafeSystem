@@ -77,10 +77,6 @@ export default function Login({ onLogin }) {
             {loading ? 'Вход...' : 'Войти'}
           </Button>
         </form>
-        
-        <Typography variant="caption" align="center" display="block" color="textSecondary">
-          Тестовый вход: admin / admin123
-        </Typography>
       </Paper>
     </Box>
   );

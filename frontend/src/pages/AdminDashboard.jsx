@@ -3,44 +3,59 @@ import axios from 'axios';
 import {
   AppBar, Toolbar, Typography, Container, Grid, Card, CardContent,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Button, Paper, TextField, Alert, Tabs, Tab, IconButton, Box, Chip
+  Button, Paper, TextField, Alert, Tabs, Tab, IconButton, Box, Chip,
+  CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
+  Snackbar
 } from '@mui/material';
 import {
-  Refresh, Logout, Person, TableRestaurant, Receipt, TrendingUp
+  Refresh, Logout, Person, TableRestaurant, Receipt, TrendingUp,
+  AttachMoney, Schedule, Cancel, CheckCircle, Add
 } from '@mui/icons-material';
 
 const API = 'http://localhost:5154/api';
 
 export default function AdminDashboard({ user, onLogout }) {
+  // Состояния
   const [activeSessions, setActiveSessions] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [tabValue, setTabValue] = useState(0);
   const [newSession, setNewSession] = useState({ guestName: '', phone: '', tableNumber: 1 });
-  const [message, setMessage] = useState('');
-  const [messageType, setMessageType] = useState('info');
-  const [stats, setStats] = useState({ activeCount: 0, todayRevenue: 0, totalGuests: 0 });
+  const [message, setMessage] = useState({ text: '', type: 'info', open: false });
+  const [stats, setStats] = useState({ activeCount: 0, todayRevenue: 0, totalGuests: 0, currentTariff: 3.5 });
   const [reportData, setReportData] = useState(null);
-  const [showReport, setShowReport] = useState(false);
+  const [loading, setLoading] = useState({ sessions: false, bookings: false, report: false });
+  const [endDialogOpen, setEndDialogOpen] = useState(false);
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [endResult, setEndResult] = useState(null);
 
+  // Загрузка активных сеансов
   const fetchActiveSessions = async () => {
+    setLoading(prev => ({ ...prev, sessions: true }));
     try {
       const res = await axios.get(`${API}/session/active`);
       setActiveSessions(res.data);
       setStats(prev => ({ ...prev, activeCount: res.data.length }));
     } catch (err) {
-      console.error('Ошибка загрузки сеансов:', err);
+      showMessage('Ошибка загрузки сеансов: ' + (err.response?.data?.error || err.message), 'error');
+    } finally {
+      setLoading(prev => ({ ...prev, sessions: false }));
     }
   };
 
+  // Загрузка бронирований
   const fetchBookings = async () => {
+    setLoading(prev => ({ ...prev, bookings: true }));
     try {
       const res = await axios.get(`${API}/booking/active`);
       setBookings(res.data);
     } catch (err) {
-      console.error('Ошибка загрузки броней:', err);
+      showMessage('Ошибка загрузки броней: ' + (err.response?.data?.error || err.message), 'error');
+    } finally {
+      setLoading(prev => ({ ...prev, bookings: false }));
     }
   };
 
+  // Загрузка статистики за сегодня
   const fetchTodayStats = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
@@ -55,83 +70,134 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   };
 
+  // Загрузка текущего тарифа
+  const fetchCurrentTariff = async () => {
+    try {
+      const res = await axios.get(`${API}/tariff/current`);
+      setStats(prev => ({ ...prev, currentTariff: res.data.pricePerMinute }));
+    } catch (err) {
+      console.error('Ошибка загрузки тарифа:', err);
+    }
+  };
+
+  // Начало сеанса
   const startSession = async () => {
-    if (!newSession.guestName) {
+    if (!newSession.guestName.trim()) {
       showMessage('Введите имя гостя', 'error');
       return;
     }
     try {
       await axios.post(`${API}/session/start`, newSession);
       setNewSession({ guestName: '', phone: '', tableNumber: 1 });
-      fetchActiveSessions();
-      fetchTodayStats();
-      showMessage('Сеанс успешно начат', 'success');
+      await Promise.all([fetchActiveSessions(), fetchTodayStats()]);
+      showMessage(`Сеанс для "${newSession.guestName}" успешно начат`, 'success');
     } catch (err) {
-      showMessage('Ошибка при начале сеанса', 'error');
+      showMessage('Ошибка при начале сеанса: ' + (err.response?.data?.error || err.message), 'error');
     }
   };
 
-  const endSession = async (id, guestName) => {
-    if (window.confirm(`Завершить сеанс для "${guestName}"?`)) {
-      try {
-        const res = await axios.post(`${API}/session/end/${id}`);
-        showMessage(res.data.message || 'Сеанс завершён', 'success');
-        fetchActiveSessions();
-        fetchTodayStats();
-      } catch (err) {
-        showMessage('Ошибка при завершении сеанса', 'error');
-      }
+  // Открытие диалога завершения сеанса
+  const openEndSessionDialog = (session) => {
+    setSelectedSession(session);
+    setEndResult(null);
+    setEndDialogOpen(true);
+  };
+
+  // Завершение сеанса
+  const confirmEndSession = async () => {
+    if (!selectedSession) return;
+    
+    try {
+      const res = await axios.post(`${API}/session/end/${selectedSession.id}`);
+      setEndResult({
+        guestName: selectedSession.guestName,
+        minutes: res.data.totalMinutes,
+        cost: res.data.totalCost
+      });
+      await Promise.all([fetchActiveSessions(), fetchTodayStats()]);
+      showMessage(res.data.message || 'Сеанс завершён', 'success');
+      
+      // Закрываем диалог через 2 секунды после успеха
+      setTimeout(() => {
+        setEndDialogOpen(false);
+        setSelectedSession(null);
+        setEndResult(null);
+      }, 2000);
+    } catch (err) {
+      showMessage('Ошибка при завершении сеанса: ' + (err.response?.data?.error || err.message), 'error');
+      setEndDialogOpen(false);
+      setSelectedSession(null);
     }
   };
 
+  // Отмена брони
   const cancelBooking = async (id, guestName) => {
-    if (window.confirm(`Отменить бронь для "${guestName}"?`)) {
-      try {
-        await axios.delete(`${API}/booking/cancel/${id}`, { data: { confirm: true } });
-        fetchBookings();
-        showMessage('Бронь отменена', 'success');
-      } catch (err) {
-        showMessage('Ошибка при отмене', 'error');
-      }
+    if (!window.confirm(`Отменить бронь для "${guestName}"?`)) return;
+    
+    try {
+      await axios.delete(`${API}/booking/cancel/${id}`);
+      await fetchBookings();
+      showMessage(`Бронь для "${guestName}" отменена`, 'success');
+    } catch (err) {
+      showMessage('Ошибка при отмене: ' + (err.response?.data?.error || err.message), 'error');
     }
   };
 
+  // Загрузка отчёта
   const fetchReport = async () => {
+    setLoading(prev => ({ ...prev, report: true }));
     try {
       const today = new Date().toISOString().split('T')[0];
       const res = await axios.get(`${API}/report/revenue?from=${today}&to=${today}`);
       setReportData(res.data);
-      setShowReport(true);
     } catch (err) {
-      showMessage('Ошибка загрузки отчёта', 'error');
+      showMessage('Ошибка загрузки отчёта: ' + (err.response?.data?.error || err.message), 'error');
+    } finally {
+      setLoading(prev => ({ ...prev, report: false }));
     }
   };
 
+  // Показать уведомление
   const showMessage = (text, type) => {
-    setMessage(text);
-    setMessageType(type);
-    setTimeout(() => setMessage(''), 3000);
+    setMessage({ text, type, open: true });
+    setTimeout(() => setMessage(prev => ({ ...prev, open: false })), 4000);
   };
 
-  useEffect(() => {
-    fetchActiveSessions();
-    fetchBookings();
-    fetchTodayStats();
-    
-    const interval = setInterval(() => {
-      fetchActiveSessions();
-    }, 30000);
-    
-    return () => clearInterval(interval);
-  }, []);
-
+  // Форматирование времени
   const formatTime = (dateStr) => {
     return new Date(dateStr).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Форматирование даты
   const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleDateString('ru-RU');
   };
+
+  // Подсчёт длительности сеанса
+  const getDuration = (startTime) => {
+    const minutes = Math.floor((new Date() - new Date(startTime)) / 60000);
+    if (minutes < 60) return `${minutes} мин`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours} ч ${mins} мин`;
+  };
+
+  // Первоначальная загрузка
+  useEffect(() => {
+    Promise.all([
+      fetchActiveSessions(),
+      fetchBookings(),
+      fetchTodayStats(),
+      fetchCurrentTariff()
+    ]);
+    
+    const interval = setInterval(() => {
+      fetchActiveSessions();
+      fetchCurrentTariff();
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <>
@@ -140,7 +206,11 @@ export default function AdminDashboard({ user, onLogout }) {
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             🍵 Анти-кафе | {user?.fullName || user?.username}
           </Typography>
-          <Chip label={user?.role === 'admin' ? 'Администратор' : user?.role} size="small" sx={{ mr: 2, bgcolor: '#e74c3c', color: 'white' }} />
+          <Chip 
+            label={user?.role === 'admin' ? 'Администратор' : user?.role} 
+            size="small" 
+            sx={{ mr: 2, bgcolor: '#e74c3c', color: 'white' }} 
+          />
           <IconButton color="inherit" onClick={fetchActiveSessions}>
             <Refresh />
           </IconButton>
@@ -151,10 +221,19 @@ export default function AdminDashboard({ user, onLogout }) {
       </AppBar>
       
       <Container sx={{ mt: 3, mb: 4 }}>
-        {message && <Alert severity={messageType} sx={{ mb: 2 }}>{message}</Alert>}
+        <Snackbar
+          open={message.open}
+          autoHideDuration={4000}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        >
+          <Alert severity={message.type} sx={{ width: '100%' }}>
+            {message.text}
+          </Alert>
+        </Snackbar>
         
+        {/* Карточки статистики */}
         <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={4}>
+          <Grid item xs={12} sm={3}>
             <Card sx={{ bgcolor: '#3498db', color: 'white' }}>
               <CardContent>
                 <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -167,7 +246,7 @@ export default function AdminDashboard({ user, onLogout }) {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid item xs={12} sm={3}>
             <Card sx={{ bgcolor: '#27ae60', color: 'white' }}>
               <CardContent>
                 <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -180,7 +259,7 @@ export default function AdminDashboard({ user, onLogout }) {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid item xs={12} sm={3}>
             <Card sx={{ bgcolor: '#e67e22', color: 'white' }}>
               <CardContent>
                 <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -193,17 +272,39 @@ export default function AdminDashboard({ user, onLogout }) {
               </CardContent>
             </Card>
           </Grid>
+          <Grid item xs={12} sm={3}>
+            <Card sx={{ bgcolor: '#9b59b6', color: 'white' }}>
+              <CardContent>
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography variant="h3">{stats.currentTariff} ₽</Typography>
+                    <Typography>Цена за минуту</Typography>
+                  </Box>
+                  <AttachMoney sx={{ fontSize: 48, opacity: 0.7 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
         </Grid>
         
+        {/* Табы */}
         <Paper sx={{ mb: 2 }}>
-          <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} indicatorColor="primary" textColor="primary">
-            <Tab label="🟢 Активные сеансы" />
-            <Tab label="📅 Бронирования" />
-            <Tab label="➕ Новый сеанс" />
-            <Tab label="📊 Отчёты" />
+          <Tabs 
+            value={tabValue} 
+            onChange={(e, v) => setTabValue(v)} 
+            indicatorColor="primary" 
+            textColor="primary"
+            variant="scrollable"
+            scrollButtons="auto"
+          >
+            <Tab icon={<Schedule />} label="Активные сеансы" />
+            <Tab icon={<TableRestaurant />} label="Бронирования" />
+            <Tab icon={<Add />} label="Новый сеанс" />
+            <Tab icon={<TrendingUp />} label="Отчёты" />
           </Tabs>
         </Paper>
         
+        {/* Активные сеансы */}
         {tabValue === 0 && (
           <TableContainer component={Paper}>
             <Table>
@@ -214,38 +315,56 @@ export default function AdminDashboard({ user, onLogout }) {
                   <TableCell><b>Стол</b></TableCell>
                   <TableCell><b>Начало</b></TableCell>
                   <TableCell><b>Длительность</b></TableCell>
+                  <TableCell><b>Сумма (приблиз.)</b></TableCell>
                   <TableCell><b>Действие</b></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {activeSessions.map((session) => (
-                  <TableRow key={session.id}>
-                    <TableCell>{session.guestName}</TableCell>
-                    <TableCell>{session.phone || '—'}</TableCell>
-                    <TableCell>{session.tableNumber}</TableCell>
-                    <TableCell>{formatTime(session.startTime)}</TableCell>
-                    <TableCell>
-                      {Math.floor((new Date() - new Date(session.startTime)) / 60000)} мин
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="contained" color="error" size="small" onClick={() => endSession(session.id, session.guestName)}>
-                        Завершить
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {activeSessions.length === 0 && (
+                {loading.sessions ? (
                   <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                      Нет активных сеансов
+                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                      <CircularProgress />
                     </TableCell>
                   </TableRow>
+                ) : activeSessions.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                      🟢 Нет активных сеансов
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  activeSessions.map((session) => {
+                    const duration = getDuration(session.startTime);
+                    const approxCost = Math.floor(duration.split(' ')[0]) * stats.currentTariff;
+                    return (
+                      <TableRow key={session.id}>
+                        <TableCell>{session.guestName}</TableCell>
+                        <TableCell>{session.phone || '—'}</TableCell>
+                        <TableCell>{session.tableNumber}</TableCell>
+                        <TableCell>{formatTime(session.startTime)}</TableCell>
+                        <TableCell>{duration}</TableCell>
+                        <TableCell>~{approxCost} ₽</TableCell>
+                        <TableCell>
+                          <Button 
+                            variant="contained" 
+                            color="error" 
+                            size="small"
+                            startIcon={<CheckCircle />}
+                            onClick={() => openEndSessionDialog(session)}
+                          >
+                            Завершить
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
           </TableContainer>
         )}
         
+        {/* Бронирования */}
         {tabValue === 1 && (
           <TableContainer component={Paper}>
             <Table>
@@ -260,42 +379,62 @@ export default function AdminDashboard({ user, onLogout }) {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {bookings.map((booking) => (
-                  <TableRow key={booking.id}>
-                    <TableCell>{booking.guestName}</TableCell>
-                    <TableCell>{booking.phone}</TableCell>
-                    <TableCell>{booking.tableNumber}</TableCell>
-                    <TableCell>{formatDate(booking.bookingDate)}</TableCell>
-                    <TableCell>{booking.bookingTime}</TableCell>
-                    <TableCell>
-                      <Button variant="outlined" color="error" size="small" onClick={() => cancelBooking(booking.id, booking.guestName)}>
-                        Отменить
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {bookings.length === 0 && (
+                {loading.bookings ? (
                   <TableRow>
                     <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                      Нет активных бронирований
+                      <CircularProgress />
                     </TableCell>
                   </TableRow>
+                ) : bookings.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                      📅 Нет активных бронирований
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  bookings.map((booking) => (
+                    <TableRow key={booking.id}>
+                      <TableCell>{booking.guestName}</TableCell>
+                      <TableCell>{booking.phone}</TableCell>
+                      <TableCell>{booking.tableNumber}</TableCell>
+                      <TableCell>{formatDate(booking.bookingDate)}</TableCell>
+                      <TableCell>{booking.bookingTime}</TableCell>
+                      <TableCell>
+                        <Button 
+                          variant="outlined" 
+                          color="error" 
+                          size="small"
+                          startIcon={<Cancel />}
+                          onClick={() => cancelBooking(booking.id, booking.guestName)}
+                        >
+                          Отменить
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
           </TableContainer>
         )}
         
+        {/* Новый сеанс */}
         {tabValue === 2 && (
           <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>Начать новый сеанс</Typography>
+            <Typography variant="h6" gutterBottom>
+              ➕ Начать новый сеанс
+            </Typography>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+              Текущий тариф: {stats.currentTariff} ₽/минута
+            </Typography>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={5}>
                 <TextField
                   fullWidth
-                  label="Имя гостя"
+                  label="Имя гостя *"
                   value={newSession.guestName}
                   onChange={(e) => setNewSession({ ...newSession, guestName: e.target.value })}
+                  onKeyPress={(e) => e.key === 'Enter' && startSession()}
                 />
               </Grid>
               <Grid item xs={12} sm={4}>
@@ -304,6 +443,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   label="Телефон"
                   value={newSession.phone}
                   onChange={(e) => setNewSession({ ...newSession, phone: e.target.value })}
+                  onKeyPress={(e) => e.key === 'Enter' && startSession()}
                 />
               </Grid>
               <Grid item xs={12} sm={2}>
@@ -311,12 +451,20 @@ export default function AdminDashboard({ user, onLogout }) {
                   fullWidth
                   type="number"
                   label="Стол"
+                  inputProps={{ min: 1, max: 20 }}
                   value={newSession.tableNumber}
                   onChange={(e) => setNewSession({ ...newSession, tableNumber: parseInt(e.target.value) || 1 })}
                 />
               </Grid>
               <Grid item xs={12} sm={1}>
-                <Button variant="contained" color="primary" onClick={startSession} sx={{ height: 56 }}>
+                <Button 
+                  variant="contained" 
+                  color="primary" 
+                  onClick={startSession} 
+                  sx={{ height: 56 }}
+                  fullWidth
+                  startIcon={<Add />}
+                >
                   Старт
                 </Button>
               </Grid>
@@ -324,48 +472,102 @@ export default function AdminDashboard({ user, onLogout }) {
           </Paper>
         )}
         
+        {/* Отчёты */}
         {tabValue === 3 && (
           <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>Отчёты</Typography>
-            <Button variant="contained" startIcon={<TrendingUp />} onClick={fetchReport} sx={{ mr: 2 }}>
-              Отчёт за сегодня
+            <Typography variant="h6" gutterBottom>📊 Отчёты</Typography>
+            <Button 
+              variant="contained" 
+              startIcon={<TrendingUp />} 
+              onClick={fetchReport}
+              disabled={loading.report}
+            >
+              {loading.report ? <CircularProgress size={24} /> : 'Отчёт за сегодня'}
             </Button>
             
-            {reportData && showReport && (
+            {reportData && (
               <Box sx={{ mt: 3 }}>
                 <Typography variant="h6">📈 Выручка за {reportData.from}</Typography>
                 <Grid container spacing={2} sx={{ mt: 1 }}>
-                  <Grid item xs={4}>
-                    <Card>
+                  <Grid item xs={12} sm={4}>
+                    <Card sx={{ bgcolor: '#27ae60', color: 'white' }}>
                       <CardContent>
-                        <Typography variant="h5">{reportData.totalRevenue} ₽</Typography>
+                        <Typography variant="h4">{reportData.totalRevenue} ₽</Typography>
                         <Typography>Общая выручка</Typography>
                       </CardContent>
                     </Card>
                   </Grid>
-                  <Grid item xs={4}>
-                    <Card>
+                  <Grid item xs={12} sm={4}>
+                    <Card sx={{ bgcolor: '#3498db', color: 'white' }}>
                       <CardContent>
-                        <Typography variant="h5">{reportData.totalMinutes}</Typography>
+                        <Typography variant="h4">{reportData.totalMinutes}</Typography>
                         <Typography>Всего минут</Typography>
                       </CardContent>
                     </Card>
                   </Grid>
-                  <Grid item xs={4}>
-                    <Card>
+                  <Grid item xs={12} sm={4}>
+                    <Card sx={{ bgcolor: '#e67e22', color: 'white' }}>
                       <CardContent>
-                        <Typography variant="h5">{reportData.averageCheck?.toFixed(2)} ₽</Typography>
+                        <Typography variant="h4">{reportData.averageCheck?.toFixed(2)} ₽</Typography>
                         <Typography>Средний чек</Typography>
                       </CardContent>
                     </Card>
                   </Grid>
                 </Grid>
-                <Button sx={{ mt: 2 }} onClick={() => setShowReport(false)}>Скрыть</Button>
+                <Typography variant="body2" color="textSecondary" sx={{ mt: 2 }}>
+                  Всего сеансов: {reportData.sessionsCount}
+                </Typography>
               </Box>
             )}
           </Paper>
         )}
       </Container>
+
+      {/* Диалог завершения сеанса */}
+      <Dialog open={endDialogOpen} onClose={() => !endResult && setEndDialogOpen(false)}>
+        <DialogTitle>
+          {endResult ? '✅ Сеанс завершён' : 'Завершить сеанс?'}
+        </DialogTitle>
+        <DialogContent>
+          {selectedSession && !endResult && (
+            <Box>
+              <Typography><strong>Гость:</strong> {selectedSession.guestName}</Typography>
+              <Typography><strong>Стол:</strong> {selectedSession.tableNumber}</Typography>
+              <Typography><strong>Начало:</strong> {formatTime(selectedSession.startTime)}</Typography>
+              <Typography><strong>Длительность:</strong> {getDuration(selectedSession.startTime)}</Typography>
+              <Typography sx={{ mt: 2, color: 'warning.main' }}>
+                ⚠️ После завершения вернуть сеанс будет нельзя
+              </Typography>
+            </Box>
+          )}
+          {endResult && (
+            <Box>
+              <Typography variant="h6" color="success.main" gutterBottom>
+                Сеанс "{endResult.guestName}" завершён!
+              </Typography>
+              <Typography>⏱️ Длительность: {endResult.minutes} минут</Typography>
+              <Typography variant="h5" color="primary" sx={{ mt: 2 }}>
+                💰 К оплате: {endResult.cost} ₽
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {!endResult && (
+            <>
+              <Button onClick={() => setEndDialogOpen(false)}>Отмена</Button>
+              <Button onClick={confirmEndSession} variant="contained" color="error">
+                Завершить
+              </Button>
+            </>
+          )}
+          {endResult && (
+            <Button onClick={() => setEndDialogOpen(false)} variant="contained">
+              Закрыть
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

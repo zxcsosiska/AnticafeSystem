@@ -36,7 +36,7 @@ public class TariffController : ControllerBase
         return Ok(tariffs);
     }
 
-    [HttpPost("update")]
+    [HttpPut("update")]
     public async Task<IActionResult> UpdateTariff([FromBody] TariffUpdateRequest request)
     {
         var tariff = await _context.Tariffs.FindAsync(request.Id);
@@ -46,7 +46,7 @@ public class TariffController : ControllerBase
         tariff.PricePerMinute = request.PricePerMinute;
         await _context.SaveChangesAsync();
 
-        return Ok(new { success = true, message = "Тариф обновлён" });
+        return Ok(new { success = true, message = "Тариф обновлён", price = tariff.PricePerMinute });
     }
 }
 

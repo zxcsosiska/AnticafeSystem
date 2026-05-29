@@ -17,12 +17,15 @@ public class PricingService
         var minutes = (int)Math.Ceiling((end - start).TotalMinutes);
         if (minutes <= 0) return 0;
 
+        // Получаем тариф на момент начала
         var tariff = await GetTariffForTimeAsync(start);
         decimal baseCost = minutes * tariff;
 
-        decimal discount = await ApplyPromotionsAsync(start, minutes, baseCost);
+        // Применяем акции
+        decimal discount = await ApplyPromotionsAsync(start, minutes, tariff);
 
-        return Math.Max(0, baseCost - discount);
+        // Округляем до рублей
+        return Math.Max(0, Math.Round(baseCost - discount, 2));
     }
 
     private async Task<decimal> GetTariffForTimeAsync(DateTime time)
@@ -36,14 +39,13 @@ public class PricingService
         return tariff?.PricePerMinute ?? 3.5m;
     }
 
-    private async Task<decimal> ApplyPromotionsAsync(DateTime start, int minutes, decimal baseCost)
+    private async Task<decimal> ApplyPromotionsAsync(DateTime start, int minutes, decimal pricePerMinute)
     {
         var promotions = await _context.Promotions
             .Where(p => p.IsActive && p.StartDate <= start && p.EndDate >= start)
             .ToListAsync();
 
         decimal totalDiscount = 0;
-        decimal pricePerMinute = baseCost / minutes;
 
         foreach (var promo in promotions)
         {
@@ -54,6 +56,7 @@ public class PricingService
             }
             else if (promo.Type == "discount_percent" && promo.Value.HasValue)
             {
+                decimal baseCost = minutes * pricePerMinute;
                 totalDiscount += baseCost * (promo.Value.Value / 100);
             }
         }
