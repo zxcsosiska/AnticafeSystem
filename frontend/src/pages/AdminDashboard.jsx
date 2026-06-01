@@ -19,9 +19,6 @@ import {
 const API = 'http://localhost:5154/api';
 
 export default function AdminDashboard({ user, onLogout }) {
-  // ============================================
-  // СОСТОЯНИЯ
-  // ============================================
   const [activeSessions, setActiveSessions] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [tables, setTables] = useState([]);
@@ -55,10 +52,6 @@ export default function AdminDashboard({ user, onLogout }) {
   const [reportData, setReportData] = useState(null);
   const [showReport, setShowReport] = useState(false);
   const [errors, setErrors] = useState({});
-
-  // ============================================
-  // ЗАГРУЗКА ДАННЫХ
-  // ============================================
 
   const showMessage = (text, type) => {
     setMessage({ text, type, open: true });
@@ -131,21 +124,18 @@ export default function AdminDashboard({ user, onLogout }) {
     const startDateTime = new Date(`${newSession.startDate}T${newSession.startTime}`);
     
     try {
-      const res = await axios.get(`${API}/session/available-tables`, {
-        params: {
-          startTime: startDateTime.toISOString(),
-          durationMinutes: newSession.durationMinutes
-        }
-      });
-      setAvailableTables(res.data || []);
+        const res = await axios.get(`${API}/session/available-tables`, {
+            params: {
+                startTime: startDateTime.toISOString(),
+                durationMinutes: newSession.durationMinutes,
+                roomId: newSession.roomId 
+            }
+        });
+        setAvailableTables(res.data || []);
     } catch (err) {
-      console.error('Ошибка загрузки свободных столов:', err);
+        console.error('Ошибка загрузки свободных столов:', err);
     }
-  };
-
-  // ============================================
-  // ОБРАТНЫЙ ОТСЧЕТ
-  // ============================================
+};
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -169,10 +159,6 @@ export default function AdminDashboard({ user, onLogout }) {
     return () => clearInterval(interval);
   }, [activeSessions]);
 
-  // ============================================
-  // ВАЛИДАЦИЯ
-  // ============================================
-
   const validateForm = () => {
     const newErrors = {};
     if (!newSession.guestName.trim()) {
@@ -187,10 +173,6 @@ export default function AdminDashboard({ user, onLogout }) {
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-
-  // ============================================
-  // ДЕЙСТВИЯ
-  // ============================================
 
   const setCurrentTime = () => {
     const now = new Date();
@@ -211,7 +193,7 @@ export default function AdminDashboard({ user, onLogout }) {
     try {
       const startDateTime = new Date(`${newSession.startDate}T${newSession.startTime}`);
       
-      const response = await axios.post(`${API}/session/start`, {
+      await axios.post(`${API}/session/start`, {
         guestName: newSession.guestName,
         phone: newSession.phone,
         tableNumber: parseInt(newSession.tableNumber),
@@ -301,10 +283,6 @@ export default function AdminDashboard({ user, onLogout }) {
     window.location.reload();
   };
 
-  // ============================================
-  // ФОРМАТИРОВАНИЕ
-  // ============================================
-
   const formatTime = (dateStr) => {
     if (!dateStr) return '—';
     return new Date(dateStr).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -336,9 +314,14 @@ export default function AdminDashboard({ user, onLogout }) {
     return `${mins} мин`;
   };
 
-  // ============================================
-  // ЭФФЕКТЫ
-  // ============================================
+  const getRoomIcon = (room) => {
+    if (!room) return <MeetingRoom />;
+    switch(room.type) {
+      case 'vip': return <Star sx={{ color: '#ffd700' }} />;
+      case 'game': return <SportsEsports />;
+      default: return <MeetingRoom />;
+    }
+  };
 
   useEffect(() => {
     fetchActiveSessions();
@@ -364,18 +347,6 @@ export default function AdminDashboard({ user, onLogout }) {
       return () => clearTimeout(timer);
     }
   }, [newSession.startDate, newSession.startTime, newSession.durationMinutes, newSession.roomId]);
-
-  // ============================================
-  // ВСПОМОГАТЕЛЬНЫЕ КОМПОНЕНТЫ
-  // ============================================
-
-  const getRoomIcon = (type) => {
-    switch(type) {
-      case 'vip': return <Star sx={{ color: '#ffd700' }} />;
-      case 'game': return <SportsEsports />;
-      default: return <MeetingRoom />;
-    }
-  };
 
   const StatCard = ({ title, value, icon, color }) => (
     <Card sx={{ 
@@ -413,10 +384,6 @@ export default function AdminDashboard({ user, onLogout }) {
     { label: 'Подтверждение', icon: <CheckCircle />, description: 'Проверьте данные' }
   ];
 
-  // ============================================
-  // РЕНДЕР
-  // ============================================
-
   return (
     <>
       <AppBar position="static" sx={{ bgcolor: '#1a1a2e' }}>
@@ -424,11 +391,7 @@ export default function AdminDashboard({ user, onLogout }) {
           <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
             🍵 Анти-кафе | {user?.fullName || user?.username}
           </Typography>
-          <Chip 
-            label="Администратор" 
-            size="small" 
-            sx={{ mr: 2, bgcolor: '#e94560', color: 'white', fontWeight: 'bold' }} 
-          />
+          <Chip label="Администратор" size="small" sx={{ mr: 2, bgcolor: '#e94560', color: 'white', fontWeight: 'bold' }} />
           <IconButton color="inherit" onClick={fetchActiveSessions}>
             <Refresh />
           </IconButton>
@@ -439,60 +402,29 @@ export default function AdminDashboard({ user, onLogout }) {
       </AppBar>
       
       <Container sx={{ mt: 3, mb: 4, maxWidth: '1400px' }}>
-        {/* Уведомления */}
         {message.open && (
           <Alert severity={message.type} sx={{ mb: 2, borderRadius: 2 }} onClose={() => setMessage(prev => ({ ...prev, open: false }))}>
             {message.text}
           </Alert>
         )}
         
-        {/* Карточки статистики */}
         <Grid container spacing={3} sx={{ mb: 3 }}>
           <Grid item xs={12} sm={6} md={3}>
-            <StatCard 
-              title="Активных сеансов" 
-              value={stats.activeCount} 
-              icon={<Person sx={{ fontSize: 32 }} />}
-              color="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-            />
+            <StatCard title="Активных сеансов" value={stats.activeCount} icon={<Person sx={{ fontSize: 32 }} />} color="linear-gradient(135deg, #667eea 0%, #764ba2 100%)" />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <StatCard 
-              title="Выручка сегодня" 
-              value={`${formatNumber(stats.todayRevenue)} ₽`}
-              icon={<AttachMoney sx={{ fontSize: 32 }} />}
-              color="linear-gradient(135deg, #f093fb 0%, #f5576c 100%)"
-            />
+            <StatCard title="Выручка сегодня" value={`${formatNumber(stats.todayRevenue)} ₽`} icon={<AttachMoney sx={{ fontSize: 32 }} />} color="linear-gradient(135deg, #f093fb 0%, #f5576c 100%)" />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <StatCard 
-              title="Гостей сегодня" 
-              value={stats.totalGuests} 
-              icon={<People sx={{ fontSize: 32 }} />}
-              color="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)"
-            />
+            <StatCard title="Гостей сегодня" value={stats.totalGuests} icon={<People sx={{ fontSize: 32 }} />} color="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)" />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <StatCard 
-              title="Цена за минуту" 
-              value={`${stats.currentTariff} ₽`} 
-              icon={<AccessTime sx={{ fontSize: 32 }} />}
-              color="linear-gradient(135deg, #fa709a 0%, #fee140 100%)"
-            />
+            <StatCard title="Цена за минуту" value={`${stats.currentTariff} ₽`} icon={<AccessTime sx={{ fontSize: 32 }} />} color="linear-gradient(135deg, #fa709a 0%, #fee140 100%)" />
           </Grid>
         </Grid>
         
-        {/* Табы */}
         <Paper sx={{ mb: 2, borderRadius: 2 }}>
-          <Tabs 
-            value={tabValue} 
-            onChange={(e, v) => setTabValue(v)} 
-            indicatorColor="primary" 
-            textColor="primary"
-            variant="scrollable"
-            scrollButtons="auto"
-            sx={{ '& .MuiTab-root': { py: 2 } }}
-          >
+          <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)} indicatorColor="primary" textColor="primary" variant="scrollable" scrollButtons="auto" sx={{ '& .MuiTab-root': { py: 2 } }}>
             <Tab icon={<Person />} label="Активные сеансы" />
             <Tab icon={<TableRestaurant />} label="Бронирования" />
             <Tab icon={<Event />} label="Новый сеанс" />
@@ -500,9 +432,6 @@ export default function AdminDashboard({ user, onLogout }) {
           </Tabs>
         </Paper>
         
-        {/* ============================================ */}
-        {/* ВКЛАДКА 1: АКТИВНЫЕ СЕАНСЫ С ОБРАТНЫМ ОТСЧЕТОМ */}
-        {/* ============================================ */}
         {tabValue === 0 && (
           <TableContainer component={Paper} sx={{ borderRadius: 2, overflowX: 'auto' }}>
             <Table sx={{ minWidth: 800 }}>
@@ -544,12 +473,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         </TableCell>
                         <TableCell>{session.phone || '—'}</TableCell>
                         <TableCell>
-                          <Chip 
-                            size="small" 
-                            label={room?.name || 'Основной зал'} 
-                            icon={getRoomIcon(room?.type)} 
-                            variant="outlined"
-                          />
+                          <Chip size="small" label={room?.name || 'Основной зал'} icon={getRoomIcon(room)} variant="outlined" />
                         </TableCell>
                         <TableCell>
                           <Chip size="small" label={`Стол ${session.tableNumber}`} color="primary" variant="outlined" />
@@ -558,11 +482,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         <TableCell>
                           <Box display="flex" alignItems="center">
                             <Timer sx={{ fontSize: 14, mr: 0.5, color: isExpiring ? 'error' : '#666' }} />
-                            <Typography 
-                              fontWeight="bold" 
-                              color={isExpiring ? 'error' : 'primary'}
-                              sx={{ fontSize: '1.1rem' }}
-                            >
+                            <Typography fontWeight="bold" color={isExpiring ? 'error' : 'primary'} sx={{ fontSize: '1.1rem' }}>
                               {formatRemainingTime(remaining)}
                             </Typography>
                             <Typography variant="caption" color="textSecondary" sx={{ ml: 1 }}>
@@ -576,15 +496,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <Button 
-                            variant="contained" 
-                            color="error" 
-                            size="small"
-                            onClick={() => endSession(session.id, session.guestName)}
-                            disabled={loading}
-                            sx={{ borderRadius: 2, textTransform: 'none' }}
-                            startIcon={<CheckCircle />}
-                          >
+                          <Button variant="contained" color="error" size="small" onClick={() => endSession(session.id, session.guestName)} disabled={loading} sx={{ borderRadius: 2, textTransform: 'none' }} startIcon={<CheckCircle />}>
                             Завершить
                           </Button>
                         </TableCell>
@@ -597,9 +509,6 @@ export default function AdminDashboard({ user, onLogout }) {
           </TableContainer>
         )}
         
-        {/* ============================================ */}
-        {/* ВКЛАДКА 2: БРОНИРОВАНИЯ */}
-        {/* ============================================ */}
         {tabValue === 1 && (
           <TableContainer component={Paper} sx={{ borderRadius: 2, overflowX: 'auto' }}>
             <Table sx={{ minWidth: 800 }}>
@@ -637,7 +546,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           </Box>
                         </TableCell>
                         <TableCell>{booking.phone}</TableCell>
-                        <TableCell><Chip size="small" label={room?.name || 'Основной зал'} variant="outlined" /></TableCell>
+                        <TableCell><Chip size="small" label={room?.name || 'Основной зал'} icon={getRoomIcon(room)} variant="outlined" /></TableCell>
                         <TableCell><Chip size="small" label={`Стол ${booking.tableNumber}`} color="secondary" variant="outlined" /></TableCell>
                         <TableCell>{formatDate(booking.bookingDate)}</TableCell>
                         <TableCell>{booking.startTime}</TableCell>
@@ -656,9 +565,6 @@ export default function AdminDashboard({ user, onLogout }) {
           </TableContainer>
         )}
         
-        {/* ============================================ */}
-        {/* ВКЛАДКА 3: НОВЫЙ СЕАНС - ЕДИНЫЙ СТИЛЬ */}
-        {/* ============================================ */}
         {tabValue === 2 && (
           <Paper sx={{ p: 4, borderRadius: 3 }}>
             <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', color: '#1a1a2e' }}>
@@ -706,53 +612,49 @@ export default function AdminDashboard({ user, onLogout }) {
                         
                         {index === 1 && (
                           <Box sx={{ py: 2 }}>
-                            <TextField
-                              select
-                              fullWidth
-                              label="Выберите зал"
-                              value={newSession.roomId}
-                              onChange={(e) => setNewSession({ ...newSession, roomId: e.target.value, tableNumber: '' })}
-                              InputProps={{ startAdornment: <InputAdornment position="start"><MeetingRoom color="primary" /></InputAdornment> }}
-                            >
-                              {rooms.map((room) => (
-                                <MenuItem key={room.id} value={room.id}>
-                                  <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ width: '100%' }}>
-                                    <Box display="flex" alignItems="center">
-                                      {getRoomIcon(room.type)}
-                                      <Typography sx={{ ml: 1 }}>{room.name}</Typography>
-                                    </Box>
-                                    <Typography variant="caption" color="textSecondary">
-                                      {room.capacity} мест
-                                    </Typography>
-                                  </Box>
-                                </MenuItem>
-                              ))}
-                            </TextField>
-                            
-                            <TextField
-                              select
-                              fullWidth
-                              label="Выберите стол"
-                              value={newSession.tableNumber}
-                              onChange={(e) => { setNewSession({ ...newSession, tableNumber: e.target.value }); setErrors({ ...errors, tableNumber: '' }); }}
-                              error={!!errors.tableNumber}
-                              helperText={errors.tableNumber}
-                              sx={{ mt: 2 }}
-                              InputProps={{ startAdornment: <InputAdornment position="start"><Chair color="primary" /></InputAdornment> }}
-                            >
-                              {availableTables.length === 0 ? (
-                                <MenuItem disabled value="">Нет свободных столов</MenuItem>
-                              ) : (
-                                availableTables.map((table) => (
-                                  <MenuItem key={table.id} value={table.tableNumber}>
-                                    <Box display="flex" alignItems="center">
-                                      <Chair sx={{ mr: 1 }} />
-                                      <Typography>Стол {table.tableNumber}</Typography>
+                            <FormControl fullWidth sx={{ mb: 2 }}>
+                              <InputLabel>Выберите зал</InputLabel>
+                              <Select
+                                value={newSession.roomId}
+                                onChange={(e) => setNewSession({ ...newSession, roomId: e.target.value, tableNumber: '' })}
+                                label="Выберите зал"
+                              >
+                                {rooms.map((room) => (
+                                  <MenuItem key={room.id} value={room.id}>
+                                    <Box display="flex" alignItems="center" gap={1}>
+                                      {getRoomIcon(room)}
+                                      <Typography>{room.name}</Typography>
+                                      <Typography variant="caption" color="textSecondary" sx={{ ml: 'auto' }}>
+                                        {room.capacity} мест
+                                      </Typography>
                                     </Box>
                                   </MenuItem>
-                                ))
-                              )}
-                            </TextField>
+                                ))}
+                              </Select>
+                            </FormControl>
+
+                            <FormControl fullWidth error={!!errors.tableNumber}>
+                              <InputLabel>Выберите стол</InputLabel>
+                              <Select
+                                value={newSession.tableNumber}
+                                onChange={(e) => { setNewSession({ ...newSession, tableNumber: e.target.value }); setErrors({ ...errors, tableNumber: '' }); }}
+                                label="Выберите стол"
+                              >
+                                {availableTables.length === 0 ? (
+                                  <MenuItem disabled value="">Нет свободных столов</MenuItem>
+                                ) : (
+                                  availableTables.map((table) => (
+                                    <MenuItem key={table.id} value={table.tableNumber}>
+                                      <Box display="flex" alignItems="center" gap={1}>
+                                        <Chair />
+                                        <Typography>Стол {table.tableNumber}</Typography>
+                                      </Box>
+                                    </MenuItem>
+                                  ))
+                                )}
+                              </Select>
+                              {errors.tableNumber && <FormHelperText>{errors.tableNumber}</FormHelperText>}
+                            </FormControl>
                             
                             {availableTables.length > 0 && newSession.tableNumber && (
                               <Alert severity="success" sx={{ mt: 2 }}>
@@ -835,12 +737,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         )}
                         
                         <Box sx={{ mt: 2 }}>
-                          <Button 
-                            variant="contained" 
-                            onClick={() => setActiveStep((prev) => prev + 1)} 
-                            disabled={index === 0 && !newSession.guestName} 
-                            sx={{ mr: 1, borderRadius: 2, textTransform: 'none' }}
-                          >
+                          <Button variant="contained" onClick={() => setActiveStep((prev) => prev + 1)} disabled={index === 0 && !newSession.guestName} sx={{ mr: 1, borderRadius: 2, textTransform: 'none' }}>
                             Продолжить
                           </Button>
                           {index > 0 && (
@@ -857,23 +754,10 @@ export default function AdminDashboard({ user, onLogout }) {
                 {activeStep === steps.length && (
                   <Box sx={{ mt: 3 }}>
                     <Alert severity="info" sx={{ mb: 2 }}>🎉 Все данные заполнены! Нажмите "Начать сеанс" для подтверждения.</Alert>
-                    <Button 
-                      fullWidth 
-                      variant="contained" 
-                      color="primary" 
-                      onClick={startSession} 
-                      disabled={loading || !newSession.guestName || !newSession.tableNumber} 
-                      size="large" 
-                      startIcon={loading ? <CircularProgress size={20} /> : <CheckCircle />} 
-                      sx={{ py: 1.5, borderRadius: 2, textTransform: 'none', fontWeight: 'bold' }}
-                    >
+                    <Button fullWidth variant="contained" color="primary" onClick={startSession} disabled={loading || !newSession.guestName || !newSession.tableNumber} size="large" startIcon={loading ? <CircularProgress size={20} /> : <CheckCircle />} sx={{ py: 1.5, borderRadius: 2, textTransform: 'none', fontWeight: 'bold' }}>
                       {loading ? 'Создание...' : '✅ Начать сеанс'}
                     </Button>
-                    <Button 
-                      fullWidth 
-                      onClick={() => setActiveStep(0)} 
-                      sx={{ mt: 1, textTransform: 'none' }}
-                    >
+                    <Button fullWidth onClick={() => setActiveStep(0)} sx={{ mt: 1, textTransform: 'none' }}>
                       Назад к редактированию
                     </Button>
                   </Box>
@@ -920,19 +804,10 @@ export default function AdminDashboard({ user, onLogout }) {
           </Paper>
         )}
         
-        {/* ============================================ */}
-        {/* ВКЛАДКА 4: ОТЧЁТЫ */}
-        {/* ============================================ */}
         {tabValue === 3 && (
           <Paper sx={{ p: 4, borderRadius: 3 }}>
             <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>📊 Отчёты</Typography>
-            <Button 
-              variant="contained" 
-              startIcon={<TrendingUp />} 
-              onClick={fetchReport} 
-              disabled={loading} 
-              sx={{ borderRadius: 2, textTransform: 'none', py: 1, px: 3 }}
-            >
+            <Button variant="contained" startIcon={<TrendingUp />} onClick={fetchReport} disabled={loading} sx={{ borderRadius: 2, textTransform: 'none', py: 1, px: 3 }}>
               {loading ? <CircularProgress size={24} /> : 'Отчёт за сегодня'}
             </Button>
             
@@ -976,7 +851,6 @@ export default function AdminDashboard({ user, onLogout }) {
         )}
       </Container>
 
-      {/* Диалог чека */}
       <Dialog open={receiptDialogOpen} onClose={() => setReceiptDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ bgcolor: '#1a1a2e', color: 'white' }}>🧾 Чек об оплате</DialogTitle>
         <DialogContent id="receipt-content" sx={{ pt: 2 }}>

@@ -22,7 +22,7 @@ public class ReportController : ControllerBase
             .Where(s => !s.IsActive && s.EndTime != null)
             .ToListAsync();
 
-        sessions = sessions.Where(s => s.EndTime.Value.Date >= from.Date && s.EndTime.Value.Date <= to.Date).ToList();
+        sessions = sessions.Where(s => s.EndTime!.Value.Date >= from.Date && s.EndTime.Value.Date <= to.Date).ToList();
 
         if (sessions.Count == 0)
         {

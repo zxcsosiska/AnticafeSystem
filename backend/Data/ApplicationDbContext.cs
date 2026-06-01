@@ -20,10 +20,7 @@ public class ApplicationDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // ============================================
-        // СВЯЗИ МЕЖДУ ТАБЛИЦАМИ
-        // ============================================
-
+        // Связи
         modelBuilder.Entity<Session>()
             .HasOne(s => s.Room)
             .WithMany(r => r.Sessions)
@@ -56,18 +53,13 @@ public class ApplicationDbContext : DbContext
             .HasForeignKey(t => t.RoomId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // ============================================
-        // НАСТРОЙКИ ПОЛЕЙ
-        // ============================================
-
+        // Настройки полей
         modelBuilder.Entity<Session>()
             .Property(s => s.PlannedDurationMinutes)
             .HasDefaultValue(60);
 
-        // ============================================
         // НАЧАЛЬНЫЕ ДАННЫЕ
-        // ============================================
-
+        // Админ (пароль: admin)
         modelBuilder.Entity<User>().HasData(new User
         {
             Id = 1,
@@ -79,36 +71,37 @@ public class ApplicationDbContext : DbContext
             FailedAttempts = 0
         });
 
+        // Залы
         modelBuilder.Entity<Room>().HasData(
             new Room { Id = 1, Name = "Основной зал", Type = "usual", Capacity = 20, IsActive = true, CreatedAt = DateTime.Now },
             new Room { Id = 2, Name = "VIP зал", Type = "vip", Capacity = 8, IsActive = true, CreatedAt = DateTime.Now }
         );
 
-        // Столы (Основной зал 1-10)
-        for (int i = 1; i <= 10; i++)
+        // СТОЛЫ: Основной зал - 20 мест (столы 1-20)
+        for (int i = 1; i <= 20; i++)
         {
             modelBuilder.Entity<Table>().HasData(new Table
             {
                 Id = i,
                 RoomId = 1,
                 TableNumber = i,
-                Capacity = i <= 5 ? 2 : 4,
+                Capacity = i <= 10 ? 2 : 4,
                 IsActive = true,
                 HasCharger = i % 2 == 0,
                 HasLamp = true,
-                HasPrivacy = i >= 8
+                HasPrivacy = i >= 18
             });
         }
 
-        // Столы (VIP зал 11-13)
-        for (int i = 11; i <= 13; i++)
+        // СТОЛЫ: VIP зал - 8 мест (столы 21-28)
+        for (int i = 21; i <= 28; i++)
         {
             modelBuilder.Entity<Table>().HasData(new Table
             {
                 Id = i,
                 RoomId = 2,
                 TableNumber = i,
-                Capacity = i == 13 ? 8 : 6,
+                Capacity = 4,
                 IsActive = true,
                 HasCharger = true,
                 HasLamp = true,
@@ -116,6 +109,7 @@ public class ApplicationDbContext : DbContext
             });
         }
 
+        // Тарифы
         modelBuilder.Entity<Tariff>().HasData(new Tariff
         {
             Id = 1,
