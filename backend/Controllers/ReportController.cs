@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using AnticafeBackend.Data;
-using AnticafeBackend.Models;
 
 namespace AnticafeBackend.Controllers;
 
@@ -20,53 +19,36 @@ public class ReportController : ControllerBase
     public async Task<IActionResult> GetRevenueReport(DateTime from, DateTime to)
     {
         var sessions = await _context.Sessions
-            .Where(s => s.StartTime >= from && s.StartTime <= to && !s.IsActive)
+            .Where(s => !s.IsActive && s.EndTime != null)
             .ToListAsync();
 
-        var totalRevenue = sessions.Sum(s => s.TotalCost);
-        var totalMinutes = sessions.Sum(s => s.TotalMinutes);
-        var averageCheck = sessions.Any() ? totalRevenue / sessions.Count : 0;
+        sessions = sessions.Where(s => s.EndTime.Value.Date >= from.Date && s.EndTime.Value.Date <= to.Date).ToList();
 
-        var dailyRevenue = sessions
-            .GroupBy(s => s.StartTime.Date)
-            .Select(g => new { Date = g.Key.ToString("yyyy-MM-dd"), Revenue = g.Sum(s => s.TotalCost), Count = g.Count() })
-            .OrderBy(x => x.Date)
-            .ToList();
+        if (sessions.Count == 0)
+        {
+            return Ok(new
+            {
+                totalRevenue = 0,
+                totalMinutes = 0,
+                sessionsCount = 0
+            });
+        }
+
+        decimal totalRevenue = 0;
+        int totalMinutes = 0;
+
+        foreach (var s in sessions)
+        {
+            totalRevenue += s.TotalCost;
+            totalMinutes += s.DurationMinutes;
+        }
 
         return Ok(new
         {
-            from = from.ToString("yyyy-MM-dd"),
-            to = to.ToString("yyyy-MM-dd"),
-            totalRevenue,
-            totalMinutes,
-            averageCheck,
+            totalRevenue = totalRevenue,
+            totalMinutes = totalMinutes,
             sessionsCount = sessions.Count,
-            dailyRevenue
+            averageCheck = totalRevenue / sessions.Count
         });
-    }
-
-    [HttpGet("occupancy")]
-    public async Task<IActionResult> GetOccupancyReport(DateTime date)
-    {
-        var sessions = await _context.Sessions
-            .Where(s => s.StartTime.Date == date.Date)
-            .ToListAsync();
-
-        var hourlyOccupancy = new List<object>();
-        for (int hour = 10; hour <= 23; hour++)
-        {
-            var count = sessions.Count(s => s.StartTime.Hour <= hour &&
-                (s.EndTime == null || s.EndTime.Value.Hour >= hour));
-            hourlyOccupancy.Add(new { Hour = hour, Guests = count });
-        }
-
-        return Ok(hourlyOccupancy);
-    }
-
-    [HttpGet("tariffs")]
-    public async Task<IActionResult> GetTariffs()
-    {
-        var tariffs = await _context.Tariffs.Where(t => t.IsActive).ToListAsync();
-        return Ok(tariffs);
     }
 }

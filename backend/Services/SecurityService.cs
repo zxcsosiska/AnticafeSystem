@@ -57,7 +57,7 @@ public class SecurityService
         return (true, "Успешный вход", user);
     }
 
-    public async Task<bool> CanBookAsync(string ipAddress)
+    public Task<bool> CanBookAsync(string ipAddress)
     {
         if (string.IsNullOrEmpty(ipAddress))
             ipAddress = "unknown";
@@ -69,7 +69,7 @@ public class SecurityService
             .Count(t => t > DateTime.Now.AddHours(-1));
 
         if (lastHourAttempts >= 3)
-            return false;
+            return Task.FromResult(false);
 
         _bookingAttempts[ipAddress].Add(DateTime.Now);
 
@@ -77,17 +77,12 @@ public class SecurityService
             .Where(t => t > DateTime.Now.AddHours(-1))
             .ToList();
 
-        return true;
+        return Task.FromResult(true);
     }
 
-    public async Task LogActionAsync(string actionType, string data)
+    public Task LogActionAsync(string actionType, string data)
     {
-        _context.ActionLogs.Add(new ActionLog
-        {
-            ActionType = actionType,
-            Data = data,
-            CreatedAt = DateTime.Now
-        });
-        await _context.SaveChangesAsync();
+        Console.WriteLine($"[LOG] {actionType}: {data}");
+        return Task.CompletedTask;
     }
 }

@@ -12,23 +12,7 @@ public class PricingService
         _context = context;
     }
 
-    public async Task<decimal> CalculateCostAsync(DateTime start, DateTime end)
-    {
-        var minutes = (int)Math.Ceiling((end - start).TotalMinutes);
-        if (minutes <= 0) return 0;
-
-        // Получаем тариф на момент начала
-        var tariff = await GetTariffForTimeAsync(start);
-        decimal baseCost = minutes * tariff;
-
-        // Применяем акции
-        decimal discount = await ApplyPromotionsAsync(start, minutes, tariff);
-
-        // Округляем до рублей
-        return Math.Max(0, Math.Round(baseCost - discount, 2));
-    }
-
-    private async Task<decimal> GetTariffForTimeAsync(DateTime time)
+    public async Task<decimal> GetCurrentTariffAsync(DateTime time)
     {
         var tariff = await _context.Tariffs
             .Where(t => t.IsActive &&
@@ -39,28 +23,28 @@ public class PricingService
         return tariff?.PricePerMinute ?? 3.5m;
     }
 
-    private async Task<decimal> ApplyPromotionsAsync(DateTime start, int minutes, decimal pricePerMinute)
+    public async Task<int> GetMinimumMinutesAsync(DateTime time)
     {
-        var promotions = await _context.Promotions
-            .Where(p => p.IsActive && p.StartDate <= start && p.EndDate >= start)
-            .ToListAsync();
+        var tariff = await _context.Tariffs
+            .Where(t => t.IsActive &&
+                   (t.DayOfWeek == null || t.DayOfWeek == (int)time.DayOfWeek) &&
+                   time.Hour >= t.HourFrom && time.Hour < t.HourTo)
+            .FirstOrDefaultAsync();
 
-        decimal totalDiscount = 0;
+        return tariff?.MinimumMinutes ?? 30;
+    }
 
-        foreach (var promo in promotions)
-        {
-            if (promo.Type == "first_hour_free")
-            {
-                int freeMinutes = Math.Min(60, minutes);
-                totalDiscount += freeMinutes * pricePerMinute;
-            }
-            else if (promo.Type == "discount_percent" && promo.Value.HasValue)
-            {
-                decimal baseCost = minutes * pricePerMinute;
-                totalDiscount += baseCost * (promo.Value.Value / 100);
-            }
-        }
+    public async Task<decimal> CalculateCostAsync(DateTime start, DateTime end)
+    {
+        var minutes = (int)Math.Ceiling((end - start).TotalMinutes);
+        if (minutes <= 0) return 0;
 
-        return totalDiscount;
+        var minimumMinutes = await GetMinimumMinutesAsync(start);
+        if (minutes < minimumMinutes) minutes = minimumMinutes;
+
+        var tariff = await GetCurrentTariffAsync(start);
+        decimal total = minutes * tariff;
+
+        return Math.Round(total, 2);
     }
 }

@@ -6,7 +6,6 @@ using System.Runtime.InteropServices;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Путь к БД в папке программы
 var dbPath = Path.Combine(AppContext.BaseDirectory, "anticafe.db");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite($"Data Source={dbPath}"));
@@ -16,36 +15,27 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddCors();
 
-// Регистрируем сервисы
 builder.Services.AddScoped<SecurityService>();
 builder.Services.AddScoped<PricingService>();
 
 var app = builder.Build();
 
-// Настройка CORS
 app.UseCors(x => x.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
-
-// Раздача статических файлов
 app.UseDefaultFiles();
 app.UseStaticFiles();
-
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseAuthorization();
 app.MapControllers();
-
-// SPA fallback
 app.MapFallbackToFile("index.html");
 
-// Инициализация БД
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     dbContext.Database.EnsureCreated();
 }
 
-// Автоматически открываем браузер через 1.5 секунды
-Task.Run(async () =>
+_ = Task.Run(async () =>
 {
     await Task.Delay(1500);
     try
