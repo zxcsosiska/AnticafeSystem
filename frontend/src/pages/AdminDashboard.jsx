@@ -157,7 +157,6 @@ export default function AdminDashboard({ user, onLogout }) {
           const remaining = Math.max(0, Math.floor((endTime - new Date()) / 60000));
           newRemaining[session.id] = remaining;
           
-          // Если время вышло, обновляем список
           if (remaining === 0 && session.isActive) {
             fetchActiveSessions();
             fetchTodayStats();
@@ -410,7 +409,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const steps = [
     { label: 'Информация о госте', icon: <Person />, description: 'Введите имя и телефон' },
     { label: 'Выбор места', icon: <MeetingRoom />, description: 'Выберите зал и стол' },
-    { label: 'Время и длительность', icon: <AccessTime />, description: 'Укажите длительность' },
+    { label: 'Время и длительность', icon: <AccessTime />, description: 'Укажите дату, время и длительность' },
     { label: 'Подтверждение', icon: <CheckCircle />, description: 'Проверьте данные' }
   ];
 
@@ -658,7 +657,7 @@ export default function AdminDashboard({ user, onLogout }) {
         )}
         
         {/* ============================================ */}
-        {/* ВКЛАДКА 3: НОВЫЙ СЕАНС */}
+        {/* ВКЛАДКА 3: НОВЫЙ СЕАНС - ЕДИНЫЙ СТИЛЬ */}
         {/* ============================================ */}
         {tabValue === 2 && (
           <Paper sx={{ p: 4, borderRadius: 3 }}>
@@ -685,19 +684,21 @@ export default function AdminDashboard({ user, onLogout }) {
                           <Box sx={{ py: 2 }}>
                             <TextField
                               fullWidth
-                              label="Имя гостя *"
+                              label="Имя гостя"
+                              placeholder="Введите имя гостя"
                               value={newSession.guestName}
                               onChange={(e) => { setNewSession({ ...newSession, guestName: e.target.value }); setErrors({ ...errors, guestName: '' }); }}
                               error={!!errors.guestName}
                               helperText={errors.guestName}
-                              sx={{ mb: 2 }}
                               InputProps={{ startAdornment: <InputAdornment position="start"><Person color="primary" /></InputAdornment> }}
                             />
                             <TextField
                               fullWidth
                               label="Телефон"
+                              placeholder="Введите номер телефона"
                               value={newSession.phone}
                               onChange={(e) => setNewSession({ ...newSession, phone: e.target.value })}
+                              sx={{ mt: 2 }}
                               InputProps={{ startAdornment: <InputAdornment position="start"><Phone color="primary" /></InputAdornment> }}
                             />
                           </Box>
@@ -705,52 +706,57 @@ export default function AdminDashboard({ user, onLogout }) {
                         
                         {index === 1 && (
                           <Box sx={{ py: 2 }}>
-                            <FormControl fullWidth sx={{ mb: 2 }}>
-                              <InputLabel>Выберите зал</InputLabel>
-                              <Select 
-                                value={newSession.roomId} 
-                                onChange={(e) => setNewSession({ ...newSession, roomId: e.target.value, tableNumber: '' })}
-                              >
-                                {rooms.map((room) => (
-                                  <MenuItem key={room.id} value={room.id}>
+                            <TextField
+                              select
+                              fullWidth
+                              label="Выберите зал"
+                              value={newSession.roomId}
+                              onChange={(e) => setNewSession({ ...newSession, roomId: e.target.value, tableNumber: '' })}
+                              InputProps={{ startAdornment: <InputAdornment position="start"><MeetingRoom color="primary" /></InputAdornment> }}
+                            >
+                              {rooms.map((room) => (
+                                <MenuItem key={room.id} value={room.id}>
+                                  <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ width: '100%' }}>
                                     <Box display="flex" alignItems="center">
                                       {getRoomIcon(room.type)}
-                                      <Box ml={1}>
-                                        <Typography>{room.name}</Typography>
-                                        <Typography variant="caption" color="textSecondary">{room.capacity} мест</Typography>
-                                      </Box>
-                                      {room.type === 'vip' && <Chip label="VIP" size="small" color="warning" sx={{ ml: 1 }} />}
+                                      <Typography sx={{ ml: 1 }}>{room.name}</Typography>
+                                    </Box>
+                                    <Typography variant="caption" color="textSecondary">
+                                      {room.capacity} мест
+                                    </Typography>
+                                  </Box>
+                                </MenuItem>
+                              ))}
+                            </TextField>
+                            
+                            <TextField
+                              select
+                              fullWidth
+                              label="Выберите стол"
+                              value={newSession.tableNumber}
+                              onChange={(e) => { setNewSession({ ...newSession, tableNumber: e.target.value }); setErrors({ ...errors, tableNumber: '' }); }}
+                              error={!!errors.tableNumber}
+                              helperText={errors.tableNumber}
+                              sx={{ mt: 2 }}
+                              InputProps={{ startAdornment: <InputAdornment position="start"><Chair color="primary" /></InputAdornment> }}
+                            >
+                              {availableTables.length === 0 ? (
+                                <MenuItem disabled value="">Нет свободных столов</MenuItem>
+                              ) : (
+                                availableTables.map((table) => (
+                                  <MenuItem key={table.id} value={table.tableNumber}>
+                                    <Box display="flex" alignItems="center">
+                                      <Chair sx={{ mr: 1 }} />
+                                      <Typography>Стол {table.tableNumber}</Typography>
                                     </Box>
                                   </MenuItem>
-                                ))}
-                              </Select>
-                            </FormControl>
-                            
-                            <FormControl fullWidth error={!!errors.tableNumber}>
-                              <InputLabel>Выберите стол</InputLabel>
-                              <Select 
-                                value={newSession.tableNumber} 
-                                onChange={(e) => { setNewSession({ ...newSession, tableNumber: e.target.value }); setErrors({ ...errors, tableNumber: '' }); }}
-                              >
-                                {availableTables.length === 0 ? (
-                                  <MenuItem disabled value="">Нет свободных столов</MenuItem>
-                                ) : (
-                                  availableTables.map((table) => (
-                                    <MenuItem key={table.id} value={table.tableNumber}>
-                                      <Box display="flex" alignItems="center" sx={{ width: '100%' }}>
-                                        <Chair sx={{ mr: 1, color: '#667eea' }} />
-                                        <Typography sx={{ fontWeight: 500 }}>Стол {table.tableNumber}</Typography>
-                                      </Box>
-                                    </MenuItem>
-                                  ))
-                                )}
-                              </Select>
-                              {errors.tableNumber && <FormHelperText>{errors.tableNumber}</FormHelperText>}
-                            </FormControl>
+                                ))
+                              )}
+                            </TextField>
                             
                             {availableTables.length > 0 && newSession.tableNumber && (
                               <Alert severity="success" sx={{ mt: 2 }}>
-                                ✅ Стол {newSession.tableNumber} свободен
+                                ✅ Стол {newSession.tableNumber} свободен в выбранное время
                               </Alert>
                             )}
                           </Box>
@@ -758,9 +764,8 @@ export default function AdminDashboard({ user, onLogout }) {
                         
                         {index === 2 && (
                           <Box sx={{ py: 2 }}>
-                            <Box display="flex" alignItems="center" sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
+                            <Box display="flex" alignItems="center" sx={{ mb: 2, gap: 1 }}>
                               <TextField
-                                fullWidth
                                 type="date"
                                 label="Дата"
                                 value={newSession.startDate}
@@ -769,13 +774,13 @@ export default function AdminDashboard({ user, onLogout }) {
                                 sx={{ flex: 1 }}
                                 InputProps={{ startAdornment: <InputAdornment position="start"><Event color="primary" /></InputAdornment> }}
                               />
-                              <Button variant="outlined" size="small" onClick={setCurrentTime} sx={{ minWidth: 100, height: 56 }}>
+                              <Button variant="outlined" onClick={setCurrentTime} sx={{ height: 56, minWidth: 100 }}>
                                 🟢 Сейчас
                               </Button>
                             </Box>
                             <TextField
-                              fullWidth
                               type="time"
+                              fullWidth
                               label="Время начала"
                               value={newSession.startTime}
                               onChange={(e) => setNewSession({ ...newSession, startTime: e.target.value })}
@@ -784,8 +789,8 @@ export default function AdminDashboard({ user, onLogout }) {
                               InputProps={{ startAdornment: <InputAdornment position="start"><AccessTime color="primary" /></InputAdornment> }}
                             />
                             <TextField
-                              fullWidth
                               type="number"
+                              fullWidth
                               label="Длительность (минуты)"
                               value={newSession.durationMinutes}
                               onChange={(e) => {
@@ -807,14 +812,22 @@ export default function AdminDashboard({ user, onLogout }) {
                               <CardContent>
                                 <Typography variant="subtitle1" fontWeight="bold" gutterBottom>📋 Проверьте данные</Typography>
                                 <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: '1fr 1fr' }} gap={1}>
-                                  <Typography variant="body2" color="textSecondary">Имя:</Typography><Typography variant="body2" fontWeight="500">{newSession.guestName || '—'}</Typography>
-                                  <Typography variant="body2" color="textSecondary">Телефон:</Typography><Typography variant="body2">{newSession.phone || '—'}</Typography>
-                                  <Typography variant="body2" color="textSecondary">Зал:</Typography><Typography variant="body2">{rooms.find(r => r.id === newSession.roomId)?.name || '—'}</Typography>
-                                  <Typography variant="body2" color="textSecondary">Стол:</Typography><Typography variant="body2" fontWeight="500" color="primary">{newSession.tableNumber ? `Стол ${newSession.tableNumber}` : '—'}</Typography>
-                                  <Typography variant="body2" color="textSecondary">Дата:</Typography><Typography variant="body2">{newSession.startDate}</Typography>
-                                  <Typography variant="body2" color="textSecondary">Время:</Typography><Typography variant="body2">{newSession.startTime}</Typography>
-                                  <Typography variant="body2" color="textSecondary">Длительность:</Typography><Typography variant="body2">{newSession.durationMinutes} мин</Typography>
-                                  <Typography variant="body2" color="textSecondary">Стоимость:</Typography><Typography variant="body2" fontWeight="bold" color="success.main">~{formatNumber(newSession.durationMinutes * stats.currentTariff)} ₽</Typography>
+                                  <Typography variant="body2" color="textSecondary">Имя:</Typography>
+                                  <Typography variant="body2" fontWeight="500">{newSession.guestName || '—'}</Typography>
+                                  <Typography variant="body2" color="textSecondary">Телефон:</Typography>
+                                  <Typography variant="body2">{newSession.phone || '—'}</Typography>
+                                  <Typography variant="body2" color="textSecondary">Зал:</Typography>
+                                  <Typography variant="body2">{rooms.find(r => r.id === newSession.roomId)?.name || '—'}</Typography>
+                                  <Typography variant="body2" color="textSecondary">Стол:</Typography>
+                                  <Typography variant="body2" fontWeight="500" color="primary">{newSession.tableNumber ? `Стол ${newSession.tableNumber}` : '—'}</Typography>
+                                  <Typography variant="body2" color="textSecondary">Дата:</Typography>
+                                  <Typography variant="body2">{newSession.startDate}</Typography>
+                                  <Typography variant="body2" color="textSecondary">Время:</Typography>
+                                  <Typography variant="body2">{newSession.startTime}</Typography>
+                                  <Typography variant="body2" color="textSecondary">Длительность:</Typography>
+                                  <Typography variant="body2">{newSession.durationMinutes} мин</Typography>
+                                  <Typography variant="body2" color="textSecondary">Стоимость:</Typography>
+                                  <Typography variant="body2" fontWeight="bold" color="success.main">~{formatNumber(newSession.durationMinutes * stats.currentTariff)} ₽</Typography>
                                 </Box>
                               </CardContent>
                             </Card>
@@ -822,10 +835,19 @@ export default function AdminDashboard({ user, onLogout }) {
                         )}
                         
                         <Box sx={{ mt: 2 }}>
-                          <Button variant="contained" onClick={() => setActiveStep((prev) => prev + 1)} disabled={index === 0 && !newSession.guestName} sx={{ mr: 1, borderRadius: 2, textTransform: 'none' }}>
+                          <Button 
+                            variant="contained" 
+                            onClick={() => setActiveStep((prev) => prev + 1)} 
+                            disabled={index === 0 && !newSession.guestName} 
+                            sx={{ mr: 1, borderRadius: 2, textTransform: 'none' }}
+                          >
                             Продолжить
                           </Button>
-                          {index > 0 && <Button onClick={() => setActiveStep((prev) => prev - 1)} sx={{ textTransform: 'none' }}>Назад</Button>}
+                          {index > 0 && (
+                            <Button onClick={() => setActiveStep((prev) => prev - 1)} sx={{ textTransform: 'none' }}>
+                              Назад
+                            </Button>
+                          )}
                         </Box>
                       </StepContent>
                     </Step>
@@ -835,10 +857,23 @@ export default function AdminDashboard({ user, onLogout }) {
                 {activeStep === steps.length && (
                   <Box sx={{ mt: 3 }}>
                     <Alert severity="info" sx={{ mb: 2 }}>🎉 Все данные заполнены! Нажмите "Начать сеанс" для подтверждения.</Alert>
-                    <Button fullWidth variant="contained" color="primary" onClick={startSession} disabled={loading || !newSession.guestName || !newSession.tableNumber} size="large" startIcon={loading ? <CircularProgress size={20} /> : <CheckCircle />} sx={{ py: 1.5, borderRadius: 2, textTransform: 'none', fontWeight: 'bold' }}>
+                    <Button 
+                      fullWidth 
+                      variant="contained" 
+                      color="primary" 
+                      onClick={startSession} 
+                      disabled={loading || !newSession.guestName || !newSession.tableNumber} 
+                      size="large" 
+                      startIcon={loading ? <CircularProgress size={20} /> : <CheckCircle />} 
+                      sx={{ py: 1.5, borderRadius: 2, textTransform: 'none', fontWeight: 'bold' }}
+                    >
                       {loading ? 'Создание...' : '✅ Начать сеанс'}
                     </Button>
-                    <Button fullWidth onClick={() => setActiveStep(0)} sx={{ mt: 1, textTransform: 'none' }}>
+                    <Button 
+                      fullWidth 
+                      onClick={() => setActiveStep(0)} 
+                      sx={{ mt: 1, textTransform: 'none' }}
+                    >
                       Назад к редактированию
                     </Button>
                   </Box>
@@ -850,10 +885,34 @@ export default function AdminDashboard({ user, onLogout }) {
                   <CardContent>
                     <Typography variant="h6" gutterBottom sx={{ color: 'white', fontWeight: 'bold' }}>💡 Полезная информация</Typography>
                     <Divider sx={{ bgcolor: 'rgba(255,255,255,0.3)', my: 2 }} />
-                    <Box display="flex" alignItems="center" sx={{ mb: 2 }}><AccessTime sx={{ mr: 2, color: 'white' }} /><Box><Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>Минимальная длительность</Typography><Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)' }}>30 минут</Typography></Box></Box>
-                    <Box display="flex" alignItems="center" sx={{ mb: 2 }}><AttachMoney sx={{ mr: 2, color: 'white' }} /><Box><Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>Текущий тариф</Typography><Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)' }}>{stats.currentTariff} ₽/минута</Typography></Box></Box>
-                    <Box display="flex" alignItems="center" sx={{ mb: 2 }}><People sx={{ mr: 2, color: 'white' }} /><Box><Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>Гостей сегодня</Typography><Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)' }}>{formatNumber(stats.totalGuests)} человек</Typography></Box></Box>
-                    <Box display="flex" alignItems="center"><TrendingUp sx={{ mr: 2, color: 'white' }} /><Box><Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>Выручка сегодня</Typography><Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)' }}>{formatNumber(stats.todayRevenue)} ₽</Typography></Box></Box>
+                    <Box display="flex" alignItems="center" sx={{ mb: 2 }}>
+                      <AccessTime sx={{ mr: 2, color: 'white' }} />
+                      <Box>
+                        <Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>Минимальная длительность</Typography>
+                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)' }}>30 минут</Typography>
+                      </Box>
+                    </Box>
+                    <Box display="flex" alignItems="center" sx={{ mb: 2 }}>
+                      <AttachMoney sx={{ mr: 2, color: 'white' }} />
+                      <Box>
+                        <Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>Текущий тариф</Typography>
+                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)' }}>{stats.currentTariff} ₽/минута</Typography>
+                      </Box>
+                    </Box>
+                    <Box display="flex" alignItems="center" sx={{ mb: 2 }}>
+                      <People sx={{ mr: 2, color: 'white' }} />
+                      <Box>
+                        <Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>Гостей сегодня</Typography>
+                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)' }}>{formatNumber(stats.totalGuests)} человек</Typography>
+                      </Box>
+                    </Box>
+                    <Box display="flex" alignItems="center">
+                      <TrendingUp sx={{ mr: 2, color: 'white' }} />
+                      <Box>
+                        <Typography variant="body2" sx={{ color: 'white', fontWeight: 'bold' }}>Выручка сегодня</Typography>
+                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)' }}>{formatNumber(stats.todayRevenue)} ₽</Typography>
+                      </Box>
+                    </Box>
                   </CardContent>
                 </Card>
               </Grid>
@@ -867,7 +926,13 @@ export default function AdminDashboard({ user, onLogout }) {
         {tabValue === 3 && (
           <Paper sx={{ p: 4, borderRadius: 3 }}>
             <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>📊 Отчёты</Typography>
-            <Button variant="contained" startIcon={<TrendingUp />} onClick={fetchReport} disabled={loading} sx={{ borderRadius: 2, textTransform: 'none', py: 1, px: 3 }}>
+            <Button 
+              variant="contained" 
+              startIcon={<TrendingUp />} 
+              onClick={fetchReport} 
+              disabled={loading} 
+              sx={{ borderRadius: 2, textTransform: 'none', py: 1, px: 3 }}
+            >
               {loading ? <CircularProgress size={24} /> : 'Отчёт за сегодня'}
             </Button>
             
@@ -921,12 +986,18 @@ export default function AdminDashboard({ user, onLogout }) {
               <Typography variant="body2" align="center" color="textSecondary" gutterBottom>{currentReceipt.date || new Date().toLocaleString()}</Typography>
               <Divider sx={{ my: 2 }} />
               <Box display="grid" gridTemplateColumns="1fr 1fr" gap={1}>
-                <Typography variant="body2" color="textSecondary">Гость:</Typography><Typography variant="body2" fontWeight="500">{currentReceipt.guestName}</Typography>
-                <Typography variant="body2" color="textSecondary">Телефон:</Typography><Typography variant="body2">{currentReceipt.phone || '—'}</Typography>
-                <Typography variant="body2" color="textSecondary">Стол:</Typography><Typography variant="body2">{currentReceipt.tableNumber}</Typography>
-                <Typography variant="body2" color="textSecondary">Начало:</Typography><Typography variant="body2">{formatDateTime(currentReceipt.startTime)}</Typography>
-                <Typography variant="body2" color="textSecondary">Окончание:</Typography><Typography variant="body2">{currentReceipt.endTime}</Typography>
-                <Typography variant="body2" color="textSecondary">Длительность:</Typography><Typography variant="body2">{currentReceipt.hours} ч {currentReceipt.minutes} мин</Typography>
+                <Typography variant="body2" color="textSecondary">Гость:</Typography>
+                <Typography variant="body2" fontWeight="500">{currentReceipt.guestName}</Typography>
+                <Typography variant="body2" color="textSecondary">Телефон:</Typography>
+                <Typography variant="body2">{currentReceipt.phone || '—'}</Typography>
+                <Typography variant="body2" color="textSecondary">Стол:</Typography>
+                <Typography variant="body2">{currentReceipt.tableNumber}</Typography>
+                <Typography variant="body2" color="textSecondary">Начало:</Typography>
+                <Typography variant="body2">{formatDateTime(currentReceipt.startTime)}</Typography>
+                <Typography variant="body2" color="textSecondary">Окончание:</Typography>
+                <Typography variant="body2">{currentReceipt.endTime}</Typography>
+                <Typography variant="body2" color="textSecondary">Длительность:</Typography>
+                <Typography variant="body2">{currentReceipt.hours} ч {currentReceipt.minutes} мин</Typography>
               </Box>
               <Divider sx={{ my: 2 }} />
               <Box display="flex" justifyContent="space-between" alignItems="center">
