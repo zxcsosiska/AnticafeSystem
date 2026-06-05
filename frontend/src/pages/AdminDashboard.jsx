@@ -44,7 +44,7 @@ export default function AdminDashboard({ user, onLogout }) {
     roomId: 1,
     startDate: new Date().toISOString().split('T')[0],
     startTime: new Date().toTimeString().slice(0, 5),
-    durationMinutes: 60
+    durationMinutes: 30  // ← ИЗМЕНЕНО С 60 НА 30
   });
   
   const [receiptDialogOpen, setReceiptDialogOpen] = useState(false);
@@ -211,7 +211,7 @@ export default function AdminDashboard({ user, onLogout }) {
         roomId: 1,
         startDate: new Date().toISOString().split('T')[0],
         startTime: new Date().toTimeString().slice(0, 5),
-        durationMinutes: 60
+        durationMinutes: 30  // ← ИЗМЕНЕНО С 60 НА 30
       });
       setActiveStep(0);
       
@@ -696,7 +696,7 @@ export default function AdminDashboard({ user, onLogout }) {
                               label="Длительность (минуты)"
                               value={newSession.durationMinutes}
                               onChange={(e) => {
-                                const val = parseInt(e.target.value) || 60;
+                                const val = parseInt(e.target.value) || 30;  // ← ИЗМЕНЕНО С 60 НА 30
                                 setNewSession({ ...newSession, durationMinutes: val });
                                 if (val >= 30) setErrors({ ...errors, durationMinutes: '' });
                               }}
