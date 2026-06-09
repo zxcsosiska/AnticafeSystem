@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using AnticafeBackend.Data;
 using AnticafeBackend.Models;
+using AnticafeBackend.Services;
 
 namespace AnticafeBackend.Controllers;
 
@@ -10,10 +11,12 @@ namespace AnticafeBackend.Controllers;
 public class SessionController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly PricingService _pricing;
 
-    public SessionController(ApplicationDbContext context)
+    public SessionController(ApplicationDbContext context, PricingService pricing)
     {
         _context = context;
+        _pricing = pricing;
     }
 
     [HttpGet("active")]
@@ -56,7 +59,7 @@ public class SessionController : ControllerBase
     [HttpGet("rooms")]
     public async Task<IActionResult> GetRooms()
     {
-        var rooms = await _context.Rooms.ToListAsync();
+        var rooms = await _context.Rooms.Where(r => r.IsActive).ToListAsync();
         return Ok(rooms);
     }
 
@@ -68,13 +71,11 @@ public class SessionController : ControllerBase
         var endTimeStr = endTime.ToString("HH:mm");
         var date = startTime.Date;
 
-        // Занятые столы (активные сеансы)
         var busyTables = await _context.Sessions
             .Where(s => s.IsActive)
             .Select(s => s.TableNumber)
             .ToListAsync();
 
-        // Забронированные столы
         var bookedTables = await _context.Bookings
             .Where(b => b.Status == "active" &&
                         b.BookingDate.Date == date &&
@@ -85,7 +86,6 @@ public class SessionController : ControllerBase
 
         var allBusy = busyTables.Union(bookedTables).Distinct().ToList();
 
-        // Доступные столы ТОЛЬКО из выбранного зала
         var availableTables = await _context.Tables
             .Where(t => t.IsActive && t.RoomId == roomId && !allBusy.Contains(t.TableNumber))
             .Select(t => new { t.Id, t.TableNumber, t.RoomId })
@@ -97,7 +97,6 @@ public class SessionController : ControllerBase
     [HttpPost("start")]
     public async Task<IActionResult> StartSession([FromBody] StartSessionRequest request)
     {
-        // Проверки
         if (string.IsNullOrEmpty(request.GuestName))
             return BadRequest(new { error = "Введите имя гостя" });
 
@@ -107,40 +106,36 @@ public class SessionController : ControllerBase
         if (request.DurationMinutes < 30)
             return BadRequest(new { error = "Минимальная длительность - 30 минут" });
 
-        // Проверка что стол существует и принадлежит выбранному залу
         var table = await _context.Tables
             .FirstOrDefaultAsync(t => t.TableNumber == request.TableNumber && t.RoomId == request.RoomId);
 
         if (table == null)
             return BadRequest(new { error = "Стол не найден в выбранном зале" });
 
-        // Проверка что стол свободен
         var isBusy = await _context.Sessions
             .AnyAsync(s => s.IsActive && s.TableNumber == request.TableNumber);
 
         if (isBusy)
             return BadRequest(new { error = "Стол уже занят" });
 
-        // Исправление часового пояса
-        DateTime startTime;
+        var now = DateTime.Now;
 
+        // Получаем актуальную цену через PricingService
+        var currentPrice = await _pricing.GetCurrentTariffAsync(now);
+
+        DateTime startTime;
         if (request.StartTime.HasValue)
         {
             if (request.StartTime.Value.Kind == DateTimeKind.Utc)
-            {
                 startTime = request.StartTime.Value.ToLocalTime();
-            }
             else
-            {
                 startTime = request.StartTime.Value;
-            }
         }
         else
         {
             startTime = DateTime.Now;
         }
 
-        // Создаём сеанс
         var session = new Session
         {
             GuestName = request.GuestName,
@@ -150,8 +145,8 @@ public class SessionController : ControllerBase
             StartTime = startTime,
             PlannedDurationMinutes = request.DurationMinutes,
             DurationMinutes = request.DurationMinutes,
-            TariffRate = 3.5m,
-            TotalCost = request.DurationMinutes * 3.5m,
+            TariffRate = currentPrice,
+            TotalCost = request.DurationMinutes * currentPrice,
             IsActive = true,
             CreatedAt = DateTime.Now
         };
@@ -191,9 +186,14 @@ public class SessionController : ControllerBase
 
         var plannedMinutes = session.PlannedDurationMinutes;
 
+        // Пересчитываем стоимость по актуальному тарифу
+        var currentPrice = await _pricing.GetCurrentTariffAsync(session.StartTime);
+        var totalCost = actualMinutes * currentPrice;
+
         session.EndTime = endTime;
         session.DurationMinutes = actualMinutes;
-        session.TotalCost = actualMinutes * session.TariffRate;
+        session.TariffRate = currentPrice;
+        session.TotalCost = totalCost;
         session.IsActive = false;
 
         await _context.SaveChangesAsync();
@@ -225,5 +225,5 @@ public class StartSessionRequest
     public int TableNumber { get; set; }
     public int RoomId { get; set; } = 1;
     public DateTime? StartTime { get; set; }
-    public int DurationMinutes { get; set; } = 60;
+    public int DurationMinutes { get; set; } = 30;
 }

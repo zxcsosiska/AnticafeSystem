@@ -14,13 +14,24 @@ public class PricingService
 
     public async Task<decimal> GetCurrentTariffAsync(DateTime time)
     {
+        // Сначала ищем тариф, который подходит по времени и дню недели
         var tariff = await _context.Tariffs
             .Where(t => t.IsActive &&
                    (t.DayOfWeek == null || t.DayOfWeek == (int)time.DayOfWeek) &&
-                   time.Hour >= t.HourFrom && time.Hour < t.HourTo)
+                   (t.HourFrom == 0 && t.HourTo == 0 || // Если часы не заданы (0-0), то подходит для любого времени
+                    time.Hour >= t.HourFrom && time.Hour < t.HourTo))
+            .OrderByDescending(t => t.Priority) // Сортируем по приоритету
             .FirstOrDefaultAsync();
 
-        return tariff?.PricePerMinute ?? 3.5m;
+        // Если нашли тариф - возвращаем его цену
+        if (tariff != null)
+            return tariff.PricePerMinute;
+
+        // Если нет активных тарифов с подходящими условиями, берем первый активный
+        var defaultTariff = await _context.Tariffs
+            .FirstOrDefaultAsync(t => t.IsActive);
+
+        return defaultTariff?.PricePerMinute ?? 3.5m;
     }
 
     public async Task<int> GetMinimumMinutesAsync(DateTime time)
@@ -28,10 +39,18 @@ public class PricingService
         var tariff = await _context.Tariffs
             .Where(t => t.IsActive &&
                    (t.DayOfWeek == null || t.DayOfWeek == (int)time.DayOfWeek) &&
-                   time.Hour >= t.HourFrom && time.Hour < t.HourTo)
+                   (t.HourFrom == 0 && t.HourTo == 0 ||
+                    time.Hour >= t.HourFrom && time.Hour < t.HourTo))
+            .OrderByDescending(t => t.Priority)
             .FirstOrDefaultAsync();
 
-        return tariff?.MinimumMinutes ?? 30;
+        if (tariff != null)
+            return tariff.MinimumMinutes;
+
+        var defaultTariff = await _context.Tariffs
+            .FirstOrDefaultAsync(t => t.IsActive);
+
+        return defaultTariff?.MinimumMinutes ?? 30;
     }
 
     public async Task<decimal> CalculateCostAsync(DateTime start, DateTime end)
