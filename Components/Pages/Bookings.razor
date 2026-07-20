@@ -1,0 +1,689 @@
+@page "/bookings"
+@using Anticafe.Models
+@using System.Text.RegularExpressions
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+
+<div class="page-container">
+    <div class="page-header">
+        <h2>📅 Бронирования</h2>
+        <div class="header-actions">
+            <span class="badge-active">📋 @_activeBookings.Count активных</span>
+            <button class="btn-refresh" @onclick="LoadBookings">🔄</button>
+        </div>
+    </div>
+
+    <!-- Форма создания бронирования -->
+    <div class="card-glass mb-4">
+        <div class="card-header-glass">
+            <span>📝 Новое бронирование</span>
+        </div>
+        <div class="card-body-glass">
+            <div class="form-grid">
+                <div class="form-group-glass">
+                    <label>Имя гостя *</label>
+                    <input @bind="_newBookingGuest" class="form-control-glass" placeholder="Иван Петров" />
+                </div>
+                <div class="form-group-glass">
+                    <label>Телефон</label>
+                    <input @bind="_newBookingPhone" 
+                           class="form-control-glass @(!string.IsNullOrEmpty(_phoneError) ? "error" : "")" 
+                           placeholder="+7 999 123-45-67" 
+                           @oninput="ValidatePhone" />
+                    @if (!string.IsNullOrEmpty(_phoneError))
+                    {
+                        <small class="text-danger-glass">@_phoneError</small>
+                    }
+                    <small class="text-hint-glass">Необязательное поле</small>
+                </div>
+                <div class="form-group-glass">
+                    <label>Дата *</label>
+                    <input type="date" @bind="_newBookingDate" class="form-control-glass" />
+                </div>
+                <div class="form-group-glass">
+                    <label>Время *</label>
+                    <input type="time" @bind="_newBookingTime" class="form-control-glass" />
+                </div>
+                <div class="form-group-glass">
+                    <label>Длительность *</label>
+                    <div class="input-group-glass">
+                        <input type="number" @bind="_newBookingDuration" class="form-control-glass" min="30" step="15" />
+                        <span class="input-group-text-glass">мин</span>
+                    </div>
+                    @if (_newBookingDuration < 30)
+                    {
+                        <small class="text-danger-glass">Минимум 30 минут</small>
+                    }
+                </div>
+                <div class="form-group-glass">
+                    <label>Стол *</label>
+                    <select @bind="_newBookingTable" class="form-control-glass">
+                        @foreach (var table in _availableTables)
+                        {
+                            <option value="@table.TableNumber">Стол @table.TableNumber</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            
+            <!-- ИСПРАВЛЕННАЯ КНОПКА -->
+            <button class="btn-primary-glass" @onclick="CreateBooking" 
+                    disabled="@(_isBookingLoading || _newBookingDuration < 30 || string.IsNullOrWhiteSpace(_newBookingGuest) || (_hasPhoneError && !string.IsNullOrWhiteSpace(_newBookingPhone)))">
+                @(_isBookingLoading ? "⏳ Создание..." : "📅 Забронировать")
+            </button>
+            
+            @if (!string.IsNullOrEmpty(_bookingError))
+            {
+                <div class="alert-error-glass mt-3">@_bookingError</div>
+            }
+            @if (!string.IsNullOrEmpty(_bookingSuccess))
+            {
+                <div class="alert-success-glass mt-3">✅ @_bookingSuccess</div>
+            }
+        </div>
+    </div>
+
+    <!-- Активные бронирования -->
+    <div class="card-glass">
+        <div class="card-header-glass">
+            <span>📋 Активные бронирования</span>
+            <span class="badge-glass">@_activeBookings.Count</span>
+        </div>
+        <div class="card-body-glass p-0">
+            @if (_activeBookings.Count == 0)
+            {
+                <div class="empty-state-glass">
+                    <div class="empty-icon">📭</div>
+                    <p>Нет активных бронирований</p>
+                    <span class="empty-hint">Создайте новое бронирование выше</span>
+                </div>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table class="table-glass">
+                        <thead>
+                            <tr>
+                                <th>Гость</th>
+                                <th>Телефон</th>
+                                <th>Стол</th>
+                                <th>Дата</th>
+                                <th>Время</th>
+                                <th>Длительность</th>
+                                <th>Действие</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var booking in _activeBookings)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="guest-name">@booking.GuestName</div>
+                                    </td>
+                                    <td>@booking.Phone</td>
+                                    <td>Стол @booking.TableNumber</td>
+                                    <td>@booking.BookingDate.ToString("dd.MM.yyyy")</td>
+                                    <td>@booking.StartTime</td>
+                                    <td>@booking.DurationMinutes мин</td>
+                                    <td>
+                                        <button class="btn-cancel-glass" @onclick="() => CancelBooking(booking.Id)">
+                                            ❌ Отменить
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .page-container {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+
+    .page-header h2 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: white;
+        margin: 0;
+    }
+
+    .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .badge-active {
+        background: rgba(102, 126, 234, 0.15);
+        color: #667eea;
+        padding: 6px 14px;
+        border-radius: 50px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border: 1px solid rgba(102, 126, 234, 0.2);
+    }
+
+    .btn-refresh {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.08);
+        color: rgba(255,255,255,0.6);
+        border-radius: 10px;
+        padding: 8px 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+    }
+
+    .btn-refresh:hover {
+        background: rgba(255,255,255,0.1);
+        color: white;
+        transform: rotate(45deg);
+    }
+
+    .card-glass {
+        background: rgba(255,255,255,0.03);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    .card-header-glass {
+        padding: 16px 24px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: white;
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+
+    .card-body-glass {
+        padding: 24px;
+    }
+
+    .card-body-glass.p-0 {
+        padding: 0;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .form-group-glass {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .form-group-glass label {
+        color: rgba(255,255,255,0.6);
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .form-control-glass {
+        padding: 10px 14px;
+        background: rgba(255,255,255,0.05);
+        border: 2px solid rgba(255,255,255,0.08);
+        border-radius: 10px;
+        color: white;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .form-control-glass:focus {
+        border-color: #667eea;
+        outline: none;
+        box-shadow: 0 0 0 4px rgba(102,126,234,0.15);
+        background: rgba(255,255,255,0.08);
+    }
+
+    .form-control-glass.error {
+        border-color: #ff6b7a;
+    }
+
+    .form-control-glass.error:focus {
+        border-color: #ff6b7a;
+        box-shadow: 0 0 0 4px rgba(255,107,122,0.15);
+    }
+
+    .form-control-glass::placeholder {
+        color: rgba(255,255,255,0.3);
+    }
+
+    .form-control-glass option {
+        background: #1a1a2e;
+        color: white;
+    }
+
+    .input-group-glass {
+        display: flex;
+        gap: 0;
+    }
+
+    .input-group-glass .form-control-glass {
+        border-radius: 10px 0 0 10px;
+    }
+
+    .input-group-text-glass {
+        padding: 10px 14px;
+        background: rgba(255,255,255,0.05);
+        border: 2px solid rgba(255,255,255,0.08);
+        border-left: none;
+        border-radius: 0 10px 10px 0;
+        color: rgba(255,255,255,0.6);
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .text-danger-glass {
+        color: #ff6b7a;
+        font-size: 0.8rem;
+        margin-top: 4px;
+    }
+
+    .text-hint-glass {
+        color: rgba(255,255,255,0.3);
+        font-size: 0.7rem;
+        margin-top: 2px;
+    }
+
+    .btn-primary-glass {
+        padding: 10px 24px;
+        background: linear-gradient(135deg, #11998e, #38ef7d);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 20px rgba(56,239,125,0.3);
+        width: 100%;
+    }
+
+    .btn-primary-glass:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 40px rgba(56,239,125,0.4);
+    }
+
+    .btn-primary-glass:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .alert-error-glass {
+        padding: 12px 16px;
+        background: rgba(255,107,122,0.1);
+        border: 1px solid rgba(255,107,122,0.2);
+        border-radius: 10px;
+        color: #ff6b7a;
+        font-size: 0.9rem;
+    }
+
+    .alert-success-glass {
+        padding: 12px 16px;
+        background: rgba(56,239,125,0.1);
+        border: 1px solid rgba(56,239,125,0.2);
+        border-radius: 10px;
+        color: #38ef7d;
+        font-size: 0.9rem;
+    }
+
+    .badge-glass {
+        background: rgba(102,126,234,0.2);
+        color: #667eea;
+        padding: 2px 12px;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .empty-state-glass {
+        text-align: center;
+        padding: 48px 24px;
+        color: rgba(255,255,255,0.3);
+    }
+
+    .empty-icon {
+        font-size: 3rem;
+        margin-bottom: 12px;
+    }
+
+    .empty-state-glass p {
+        margin: 0 0 4px 0;
+        font-size: 1rem;
+        color: rgba(255,255,255,0.5);
+    }
+
+    .empty-hint {
+        font-size: 0.85rem;
+        color: rgba(255,255,255,0.2);
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+    }
+
+    .table-glass {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+
+    .table-glass thead th {
+        padding: 12px 16px;
+        text-align: left;
+        color: rgba(255,255,255,0.4);
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .table-glass tbody td {
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.03);
+        color: rgba(255,255,255,0.8);
+    }
+
+    .table-glass tbody tr:hover {
+        background: rgba(255,255,255,0.02);
+    }
+
+    .guest-name {
+        font-weight: 600;
+        color: white;
+    }
+
+    .btn-cancel-glass {
+        padding: 6px 16px;
+        background: rgba(255,193,7,0.15);
+        border: 1px solid rgba(255,193,7,0.2);
+        border-radius: 8px;
+        color: #ffc107;
+        font-weight: 600;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-cancel-glass:hover {
+        background: rgba(255,193,7,0.25);
+        transform: scale(1.05);
+    }
+
+    .mt-3 { margin-top: 12px; }
+    .mb-4 { margin-bottom: 24px; }
+
+    @@media (max-width: 768px) {
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .table-glass {
+            font-size: 0.8rem;
+        }
+        .table-glass thead th,
+        .table-glass tbody td {
+            padding: 8px 10px;
+        }
+    }
+</style>
+
+@code {
+    private List<BookingDto> _activeBookings = new();
+    private List<TableDto> _bookingTables = new();
+    private List<TableDto> _availableTables = new();
+    
+    private string _newBookingGuest = string.Empty;
+    private string _newBookingPhone = string.Empty;
+    private DateTime _newBookingDate = DateTime.Now.Date;
+    private TimeOnly _newBookingTime = new TimeOnly(19, 0, 0);
+    private int _newBookingDuration = 60;
+    private int _newBookingTable = 1;
+    private string _bookingError = string.Empty;
+    private string _bookingSuccess = string.Empty;
+    private bool _isBookingLoading = false;
+    private string _phoneError = string.Empty;
+    private bool _hasPhoneError = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBookings();
+        await LoadTables();
+        
+        var now = DateTime.Now;
+        var nextHour = now.Hour + 1;
+        if (nextHour >= 24) nextHour = 0;
+        _newBookingTime = new TimeOnly(nextHour, 0, 0);
+    }
+
+    private async Task LoadBookings()
+    {
+        try
+        {
+            var bookings = await Http.GetFromJsonAsync<List<BookingDto>>("api/booking/active");
+            if (bookings != null)
+            {
+                _activeBookings = bookings;
+                UpdateAvailableTables();
+            }
+        }
+        catch { }
+    }
+
+    private async Task LoadTables()
+    {
+        try
+        {
+            var tables = await Http.GetFromJsonAsync<List<TableDto>>("api/session/tables");
+            if (tables != null && tables.Any())
+            {
+                _bookingTables = tables;
+                _availableTables = tables;
+                _newBookingTable = _bookingTables.First().TableNumber;
+            }
+        }
+        catch { }
+    }
+
+    private void UpdateAvailableTables()
+    {
+        var bookedTableNumbers = _activeBookings.Select(b => b.TableNumber).ToList();
+        
+        _availableTables = _bookingTables
+            .Where(t => !bookedTableNumbers.Contains(t.TableNumber))
+            .ToList();
+
+        if (!_availableTables.Any(t => t.TableNumber == _newBookingTable) && _availableTables.Any())
+        {
+            _newBookingTable = _availableTables.First().TableNumber;
+        }
+        StateHasChanged();
+    }
+
+    private void ValidatePhone()
+    {
+        // Если поле пустое - это допустимо (необязательное поле)
+        if (string.IsNullOrWhiteSpace(_newBookingPhone))
+        {
+            _phoneError = string.Empty;
+            _hasPhoneError = false;
+            return;
+        }
+        
+        // Удаляем все пробелы, скобки, дефисы
+        var cleaned = Regex.Replace(_newBookingPhone, @"[\s\-\(\)]", "");
+        
+        // Проверяем, что остались только цифры и + в начале
+        if (!Regex.IsMatch(cleaned, @"^\+?[\d]+$"))
+        {
+            _phoneError = "Телефон должен содержать только цифры и +";
+            _hasPhoneError = true;
+            return;
+        }
+        
+        // Проверяем длину (без +)
+        var digits = cleaned.Replace("+", "");
+        if (digits.Length < 10 || digits.Length > 15)
+        {
+            _phoneError = "Введите корректный номер (10-15 цифр)";
+            _hasPhoneError = true;
+            return;
+        }
+        
+        // Проверяем, что номер не состоит из одинаковых цифр
+        if (digits.Distinct().Count() == 1)
+        {
+            _phoneError = "Введите корректный номер телефона";
+            _hasPhoneError = true;
+            return;
+        }
+        
+        // Проверяем, что не просто последовательность 1234567890
+        if (digits == "1234567890" || digits == "0123456789")
+        {
+            _phoneError = "Введите корректный номер телефона";
+            _hasPhoneError = true;
+            return;
+        }
+        
+        _phoneError = string.Empty;
+        _hasPhoneError = false;
+    }
+
+    private async Task CreateBooking()
+    {
+        _bookingError = string.Empty;
+        _bookingSuccess = string.Empty;
+        
+        if (string.IsNullOrWhiteSpace(_newBookingGuest))
+        {
+            _bookingError = "Введите имя гостя";
+            return;
+        }
+        
+        // Если телефон указан, проверяем его
+        if (!string.IsNullOrWhiteSpace(_newBookingPhone) && _hasPhoneError)
+        {
+            _bookingError = "Исправьте ошибки в телефоне";
+            return;
+        }
+        
+        if (_newBookingDuration < 30)
+        {
+            _bookingError = "Минимальная длительность - 30 минут";
+            return;
+        }
+
+        _isBookingLoading = true;
+        try
+        {
+            var request = new
+            {
+                guestName = _newBookingGuest.Trim(),
+                phone = string.IsNullOrWhiteSpace(_newBookingPhone) ? "Не указан" : _newBookingPhone.Trim(),
+                tableNumber = _newBookingTable,
+                roomId = 1,
+                bookingDate = _newBookingDate.ToString("yyyy-MM-dd"),
+                startTime = _newBookingTime.ToString("HH:mm"),
+                durationMinutes = _newBookingDuration
+            };
+
+            var response = await Http.PostAsJsonAsync("api/booking/create", request);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                _bookingSuccess = $"Бронирование для {_newBookingGuest} создано! Стол {_newBookingTable} на {_newBookingDuration} минут";
+                _newBookingGuest = string.Empty;
+                _newBookingPhone = string.Empty;
+                _phoneError = string.Empty;
+                _hasPhoneError = false;
+                await LoadBookings();
+                
+                await Task.Delay(3000);
+                _bookingSuccess = string.Empty;
+            }
+            else
+            {
+                var error = await response.Content.ReadFromJsonAsync<dynamic>();
+                _bookingError = error?.error ?? "Ошибка создания бронирования";
+            }
+        }
+        catch (Exception ex)
+        {
+            _bookingError = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            _isBookingLoading = false;
+        }
+    }
+
+    private async Task CancelBooking(int id)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Отменить бронирование?");
+        if (!confirmed) return;
+        
+        try
+        {
+            var response = await Http.DeleteAsync($"api/booking/cancel/{id}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadBookings();
+                await JSRuntime.InvokeVoidAsync("alert", "✅ Бронирование отменено");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+        }
+    }
+
+    private class BookingDto
+    {
+        public int Id { get; set; }
+        public string GuestName { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public int TableNumber { get; set; }
+        public DateTime BookingDate { get; set; }
+        public string StartTime { get; set; } = string.Empty;
+        public int DurationMinutes { get; set; }
+    }
+
+    private class TableDto
+    {
+        public int Id { get; set; }
+        public int TableNumber { get; set; }
+        public int RoomId { get; set; }
+    }
+}

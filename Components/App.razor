@@ -1,0 +1,15 @@
+@using Microsoft.AspNetCore.Components.Routing
+@using Anticafe.Components.Layout
+
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+    </Found>
+    <NotFound>
+        <div style="text-align:center; padding:80px 20px; background:#0a0a1a; min-height:100vh; color:white;">
+            <h1 style="font-size:4rem;">404</h1>
+            <p style="color:rgba(255,255,255,0.6);">Страница не найдена</p>
+            <a href="/login" style="color:#667eea; text-decoration:none;">На главную</a>
+        </div>
+    </NotFound>
+</Router>

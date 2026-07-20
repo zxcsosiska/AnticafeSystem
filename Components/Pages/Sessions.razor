@@ -1,0 +1,672 @@
+@page "/sessions"
+@using Anticafe.Models
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+
+<div class="page-container">
+    <div class="page-header">
+        <h2>🪑 Управление сеансами</h2>
+        <div class="header-actions">
+            <span class="badge-active">🟢 @_activeSessions.Count активных</span>
+            <button class="btn-refresh" @onclick="LoadData">🔄</button>
+        </div>
+    </div>
+
+    <!-- Форма создания сеанса -->
+    <div class="card-glass mb-4">
+        <div class="card-header-glass">
+            <span>➕ Новый сеанс</span>
+        </div>
+        <div class="card-body-glass">
+            <div class="form-grid">
+                <div class="form-group-glass">
+                    <label>Имя гостя *</label>
+                    <input @bind="_newGuestName" class="form-control-glass" placeholder="Иван Петров" />
+                </div>
+                <div class="form-group-glass">
+                    <label>Телефон</label>
+                    <input @bind="_newPhone" class="form-control-glass" placeholder="+7 999 123-45-67" />
+                </div>
+                <div class="form-group-glass">
+                    <label>Стол *</label>
+                    <select @bind="_newTableNumber" class="form-control-glass">
+                        @foreach (var table in _tables)
+                        {
+                            <option value="@table.TableNumber">Стол @table.TableNumber</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group-glass">
+                    <label>Длительность *</label>
+                    <select @bind="_newDuration" class="form-control-glass">
+                        <option value="30">30 мин</option>
+                        <option value="60">1 час</option>
+                        <option value="90">1.5 часа</option>
+                        <option value="120">2 часа</option>
+                        <option value="180">3 часа</option>
+                        <option value="240">4 часа</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn-primary-glass" @onclick="StartSession" disabled="@_isLoading">
+                @(_isLoading ? "⏳ Создание..." : "🚀 Начать сеанс")
+            </button>
+            
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <div class="alert-error-glass">@_errorMessage</div>
+            }
+            @if (!string.IsNullOrEmpty(_successMessage))
+            {
+                <div class="alert-success-glass">✅ @_successMessage</div>
+            }
+        </div>
+    </div>
+
+    <!-- Активные сеансы -->
+    <div class="card-glass">
+        <div class="card-header-glass">
+            <span>🟢 Активные сеансы</span>
+            <span class="badge-glass">@_activeSessions.Count</span>
+        </div>
+        <div class="card-body-glass p-0">
+            @if (_activeSessions.Count == 0)
+            {
+                <div class="empty-state-glass">
+                    <div class="empty-icon">📭</div>
+                    <p>Нет активных сеансов</p>
+                    <span class="empty-hint">Создайте новый сеанс выше</span>
+                </div>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table class="table-glass">
+                        <thead>
+                            <tr>
+                                <th>Гость</th>
+                                <th>Стол</th>
+                                <th>Начало</th>
+                                <th>Прогресс</th>
+                                <th>Стоимость</th>
+                                <th>Действие</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var session in _activeSessions)
+                            {
+                                var elapsed = (DateTime.Now - session.StartTime).TotalMinutes;
+                                var progress = Math.Min(100, (elapsed / session.PlannedDurationMinutes) * 100);
+                                var isOverdue = progress > 100;
+                                
+                                <tr>
+                                    <td>
+                                        <div class="guest-name">@session.GuestName</div>
+                                        <div class="guest-phone">@(session.Phone ?? "—")</div>
+                                    </td>
+                                    <td>Стол @session.TableNumber</td>
+                                    <td>@session.StartTime.ToString("HH:mm")</td>
+                                    <td>
+                                        <div class="progress-glass @(isOverdue ? "overdue" : "")">
+                                            <div class="progress-bar-glass" style="width: @Math.Min(100, progress)%">
+                                                @((int)elapsed) / @session.PlannedDurationMinutes мин
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="price-tag">@session.TotalCost ₽</div>
+                                        <div class="price-rate">@session.TariffRate ₽/мин</div>
+                                    </td>
+                                    <td>
+                                        <button class="btn-end-glass" @onclick="() => EndSession(session.Id)">
+                                            ⏹ Завершить
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Завершенные сеансы -->
+    @if (_completedSessions.Any())
+    {
+        <div class="card-glass mt-4">
+            <div class="card-header-glass">
+                <span>✅ Завершенные сегодня</span>
+                <span class="badge-glass">@_completedSessions.Count</span>
+            </div>
+            <div class="card-body-glass p-0">
+                <div class="table-wrap">
+                    <table class="table-glass">
+                        <thead>
+                            <tr>
+                                <th>Гость</th>
+                                <th>Стол</th>
+                                <th>Длительность</th>
+                                <th>Стоимость</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var session in _completedSessions.Take(10))
+                            {
+                                <tr>
+                                    <td>@session.GuestName</td>
+                                    <td>Стол @session.TableNumber</td>
+                                    <td>@session.DurationMinutes мин</td>
+                                    <td><span class="price-tag">@session.TotalCost ₽</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .page-container {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 24px;
+    }
+
+    .page-header h2 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: white;
+        margin: 0;
+    }
+
+    .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .badge-active {
+        background: rgba(56, 239, 125, 0.15);
+        color: #38ef7d;
+        padding: 6px 14px;
+        border-radius: 50px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border: 1px solid rgba(56, 239, 125, 0.2);
+    }
+
+    .btn-refresh {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.08);
+        color: rgba(255,255,255,0.6);
+        border-radius: 10px;
+        padding: 8px 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 1rem;
+    }
+
+    .btn-refresh:hover {
+        background: rgba(255,255,255,0.1);
+        color: white;
+        transform: rotate(45deg);
+    }
+
+    .card-glass {
+        background: rgba(255,255,255,0.03);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    .card-header-glass {
+        padding: 16px 24px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: white;
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+
+    .card-body-glass {
+        padding: 24px;
+    }
+
+    .card-body-glass.p-0 {
+        padding: 0;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .form-group-glass {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .form-group-glass label {
+        color: rgba(255,255,255,0.6);
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .form-control-glass {
+        padding: 10px 14px;
+        background: rgba(255,255,255,0.05);
+        border: 2px solid rgba(255,255,255,0.08);
+        border-radius: 10px;
+        color: white;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .form-control-glass:focus {
+        border-color: #667eea;
+        outline: none;
+        box-shadow: 0 0 0 4px rgba(102,126,234,0.15);
+        background: rgba(255,255,255,0.08);
+    }
+
+    .form-control-glass::placeholder {
+        color: rgba(255,255,255,0.3);
+    }
+
+    .form-control-glass option {
+        background: #1a1a2e;
+        color: white;
+    }
+
+    .btn-primary-glass {
+        padding: 10px 24px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 20px rgba(102,126,234,0.3);
+        width: 100%;
+    }
+
+    .btn-primary-glass:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 40px rgba(102,126,234,0.4);
+    }
+
+    .btn-primary-glass:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .alert-error-glass {
+        margin-top: 12px;
+        padding: 12px 16px;
+        background: rgba(255,107,122,0.1);
+        border: 1px solid rgba(255,107,122,0.2);
+        border-radius: 10px;
+        color: #ff6b7a;
+        font-size: 0.9rem;
+    }
+
+    .alert-success-glass {
+        margin-top: 12px;
+        padding: 12px 16px;
+        background: rgba(56,239,125,0.1);
+        border: 1px solid rgba(56,239,125,0.2);
+        border-radius: 10px;
+        color: #38ef7d;
+        font-size: 0.9rem;
+    }
+
+    .badge-glass {
+        background: rgba(102,126,234,0.2);
+        color: #667eea;
+        padding: 2px 12px;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .empty-state-glass {
+        text-align: center;
+        padding: 48px 24px;
+        color: rgba(255,255,255,0.3);
+    }
+
+    .empty-icon {
+        font-size: 3rem;
+        margin-bottom: 12px;
+    }
+
+    .empty-state-glass p {
+        margin: 0 0 4px 0;
+        font-size: 1rem;
+        color: rgba(255,255,255,0.5);
+    }
+
+    .empty-hint {
+        font-size: 0.85rem;
+        color: rgba(255,255,255,0.2);
+    }
+
+    .table-wrap {
+        overflow-x: auto;
+    }
+
+    .table-glass {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+    }
+
+    .table-glass thead th {
+        padding: 12px 16px;
+        text-align: left;
+        color: rgba(255,255,255,0.4);
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .table-glass tbody td {
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.03);
+        color: rgba(255,255,255,0.8);
+    }
+
+    .table-glass tbody tr:hover {
+        background: rgba(255,255,255,0.02);
+    }
+
+    .guest-name {
+        font-weight: 600;
+        color: white;
+    }
+
+    .guest-phone {
+        font-size: 0.8rem;
+        color: rgba(255,255,255,0.4);
+    }
+
+    .progress-glass {
+        width: 140px;
+        height: 24px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 50px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .progress-bar-glass {
+        height: 100%;
+        background: linear-gradient(90deg, #11998e, #38ef7d);
+        border-radius: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: white;
+        transition: width 0.5s ease;
+        white-space: nowrap;
+        padding: 0 8px;
+    }
+
+    .progress-glass.overdue .progress-bar-glass {
+        background: linear-gradient(90deg, #f7971e, #ffd200);
+        color: #1a1a2e;
+    }
+
+    .price-tag {
+        font-weight: 700;
+        color: #38ef7d;
+        font-size: 1rem;
+    }
+
+    .price-rate {
+        font-size: 0.75rem;
+        color: rgba(255,255,255,0.3);
+    }
+
+    .btn-end-glass {
+        padding: 6px 16px;
+        background: rgba(255,107,122,0.15);
+        border: 1px solid rgba(255,107,122,0.2);
+        border-radius: 8px;
+        color: #ff6b7a;
+        font-weight: 600;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-end-glass:hover {
+        background: rgba(255,107,122,0.25);
+        transform: scale(1.05);
+    }
+
+    .mt-4 { margin-top: 24px; }
+    .mb-4 { margin-bottom: 24px; }
+
+    @@media (max-width: 768px) {
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .table-glass {
+            font-size: 0.8rem;
+        }
+        .table-glass thead th,
+        .table-glass tbody td {
+            padding: 8px 10px;
+        }
+        .progress-glass {
+            width: 100px;
+        }
+    }
+</style>
+
+@code {
+    private List<SessionDto> _activeSessions = new();
+    private List<SessionDto> _completedSessions = new();
+    private List<TableDto> _tables = new();
+    private string _newGuestName = "";
+    private string _newPhone = "";
+    private int _newDuration = 60;
+    private int _newTableNumber = 1;
+    private string _errorMessage = "";
+    private string _successMessage = "";
+    private bool _isLoading = false;
+    private System.Timers.Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        await LoadTables();
+        
+        _timer = new System.Timers.Timer(5000);
+        _timer.Elapsed += async (s, e) => await InvokeAsync(LoadData);
+        _timer.Start();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var active = await Http.GetFromJsonAsync<List<SessionDto>>("api/session/active");
+            if (active != null) _activeSessions = active;
+
+            var today = DateTime.Now.ToString("yyyy-MM-dd");
+            var detailed = await Http.GetFromJsonAsync<DetailedReport>($"api/report/detailed?from={today}&to={today}");
+            if (detailed != null) _completedSessions = detailed.Sessions ?? new();
+            
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    private async Task LoadTables()
+    {
+        try
+        {
+            var tables = await Http.GetFromJsonAsync<List<TableDto>>("api/session/tables");
+            if (tables != null && tables.Any())
+            {
+                _tables = tables;
+                _newTableNumber = _tables.First().TableNumber;
+            }
+        }
+        catch { }
+    }
+
+    private async Task StartSession()
+    {
+        _errorMessage = "";
+        _successMessage = "";
+        
+        if (string.IsNullOrWhiteSpace(_newGuestName))
+        {
+            _errorMessage = "Введите имя гостя";
+            return;
+        }
+
+        _isLoading = true;
+        try
+        {
+            var request = new
+            {
+                guestName = _newGuestName.Trim(),
+                phone = string.IsNullOrWhiteSpace(_newPhone) ? null : _newPhone.Trim(),
+                tableNumber = _newTableNumber,
+                roomId = 1,
+                durationMinutes = _newDuration
+            };
+
+            var response = await Http.PostAsJsonAsync("api/session/start", request);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                _successMessage = $"Сеанс для {_newGuestName} начат! Стол {_newTableNumber}";
+                _newGuestName = "";
+                _newPhone = "";
+                await LoadData();
+                
+                await Task.Delay(3000);
+                _successMessage = "";
+            }
+            else
+            {
+                var error = await response.Content.ReadFromJsonAsync<dynamic>();
+                _errorMessage = error?.error ?? "Ошибка создания сеанса";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Ошибка: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task EndSession(int id)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "Завершить сеанс?");
+        if (!confirmed) return;
+        
+        try
+        {
+            var response = await Http.PostAsync($"api/session/end/{id}", null);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<EndSessionResult>();
+                await LoadData();
+                
+                if (result != null)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", 
+                        $"✅ Сеанс завершен!\n" +
+                        $"Гость: {result.GuestName}\n" +
+                        $"Длительность: {result.ActualDurationMinutes} мин\n" +
+                        $"Сумма: {result.TotalCost} ₽\n" +
+                        $"{result.Message}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"Ошибка: {ex.Message}");
+        }
+    }
+
+    public void Dispose() => _timer?.Dispose();
+
+    private class SessionDto
+    {
+        public int Id { get; set; }
+        public string GuestName { get; set; } = "";
+        public string? Phone { get; set; }
+        public int TableNumber { get; set; }
+        public DateTime StartTime { get; set; }
+        public int PlannedDurationMinutes { get; set; }
+        public int DurationMinutes { get; set; }
+        public decimal TariffRate { get; set; }
+        public decimal TotalCost { get; set; }
+        public bool IsActive { get; set; }
+    }
+
+    private class TableDto
+    {
+        public int Id { get; set; }
+        public int TableNumber { get; set; }
+        public int RoomId { get; set; }
+    }
+
+    private class DetailedReport
+    {
+        public int Total { get; set; }
+        public List<SessionDto> Sessions { get; set; } = new();
+        public decimal TotalRevenue { get; set; }
+        public int TotalMinutes { get; set; }
+    }
+
+    private class EndSessionResult
+    {
+        public int Id { get; set; }
+        public string GuestName { get; set; } = "";
+        public int ActualDurationMinutes { get; set; }
+        public decimal TotalCost { get; set; }
+        public string Message { get; set; } = "";
+    }
+}

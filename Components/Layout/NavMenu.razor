@@ -1,0 +1,162 @@
+@using Microsoft.AspNetCore.Components.Routing
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<nav class="nav-menu p-3">
+    <div class="mb-4 text-center">
+        <div class="logo-icon">🍵</div>
+        <h5 class="text-white mb-0">Анти-кафе</h5>
+        <small class="text-muted">Система управления</small>
+    </div>
+    
+    <div class="user-info">
+        <div class="avatar">👤</div>
+        <div>
+            <div class="user-name">@_userName</div>
+            <small class="text-muted">Администратор</small>
+        </div>
+    </div>
+    
+    <hr class="text-muted" />
+    
+    <div class="nav-links">
+        <NavLink class="nav-link" href="/dashboard" Match="NavLinkMatch.Prefix">
+            <span class="nav-icon">📊</span>
+            Панель управления
+        </NavLink>
+        <NavLink class="nav-link" href="/sessions">
+            <span class="nav-icon">🪑</span>
+            Сеансы
+        </NavLink>
+        <NavLink class="nav-link" href="/bookings">
+            <span class="nav-icon">📅</span>
+            Бронирования
+        </NavLink>
+        <NavLink class="nav-link" href="/settings">
+            <span class="nav-icon">⚙️</span>
+            Настройки
+        </NavLink>
+    </div>
+    
+    <hr class="text-muted" />
+    
+    <button class="btn-logout w-100" @onclick="OnLogout">
+        🚪 Выйти
+    </button>
+    
+    <div class="mt-3 text-center">
+        <small class="text-muted" style="font-size: 0.7rem;">v1.0.0</small>
+    </div>
+</nav>
+
+<style>
+    .nav-menu {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: #1a1a2e;
+        padding: 20px 15px;
+    }
+    
+    .logo-icon {
+        font-size: 2.5rem;
+        margin-bottom: 5px;
+    }
+    
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 15px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 12px;
+        margin: 10px 0;
+    }
+    .user-info .avatar {
+        font-size: 1.8rem;
+    }
+    .user-info .user-name {
+        color: white;
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+    
+    .nav-links {
+        flex: 1;
+        margin: 10px 0;
+    }
+    
+    .nav-link { 
+        padding: 10px 15px; 
+        border-radius: 10px; 
+        margin-bottom: 5px; 
+        transition: all 0.3s;
+        color: rgba(255,255,255,0.7);
+        display: flex;
+        align-items: center;
+        text-decoration: none;
+        gap: 10px;
+        font-size: 0.95rem;
+        cursor: pointer;
+    }
+    .nav-link:hover { 
+        background: rgba(255,255,255,0.08); 
+        text-decoration: none;
+        color: white;
+        transform: translateX(5px);
+    }
+    .nav-link.active { 
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        box-shadow: 0 4px 15px rgba(102,126,234,0.3);
+    }
+    .nav-link .nav-icon {
+        font-size: 1.2rem;
+        width: 25px;
+        text-align: center;
+    }
+    
+    .btn-logout {
+        background: rgba(220, 53, 69, 0.2);
+        border: 1px solid rgba(220, 53, 69, 0.3);
+        color: #ff6b7a;
+        border-radius: 10px;
+        padding: 10px;
+        font-weight: 600;
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+    .btn-logout:hover {
+        background: rgba(220, 53, 69, 0.3);
+        transform: translateY(-2px);
+    }
+    
+    .nav-menu hr {
+        border-color: rgba(255,255,255,0.1);
+        margin: 10px 0;
+    }
+</style>
+
+@code {
+    private string _userName = "Администратор";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var name = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "user_name");
+            if (!string.IsNullOrEmpty(name))
+            {
+                _userName = name;
+            }
+        }
+        catch { }
+    }
+
+    private async Task OnLogout()
+    {
+        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "auth_token");
+        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "user_name");
+        Navigation.NavigateTo("/login", true);
+    }
+}

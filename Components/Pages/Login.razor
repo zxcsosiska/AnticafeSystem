@@ -1,0 +1,401 @@
+@page "/login"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="login-page">
+    <div class="login-container">
+        <div class="login-brand">
+            <div class="brand-content">
+                <div class="brand-icon">🍵</div>
+                <h1>Анти-кафе</h1>
+                <p class="brand-desc">Система управления</p>
+                
+                <div class="features">
+                    <div class="feature"><span>⚡</span><span>Учет времени в реальном времени</span></div>
+                    <div class="feature"><span>📊</span><span>Детальная аналитика</span></div>
+                    <div class="feature"><span>🪑</span><span>Управление залами</span></div>
+                    <div class="feature"><span>🔒</span><span>Безопасный доступ</span></div>
+                </div>
+                
+                <div class="brand-footer">
+                    <span>v1.0.0</span>
+                    <span class="status-badge"><span class="dot"></span>Система работает</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="login-form-wrap">
+            <div class="login-form">
+                <div class="form-header">
+                    <h2>Добро пожаловать</h2>
+                    <p>Войдите в систему для управления</p>
+                </div>
+                
+                @if (!string.IsNullOrEmpty(_error))
+                {
+                    <div class="alert-error">
+                        <span>❌</span>
+                        <span>@_error</span>
+                        <button @onclick="() => _error = string.Empty">×</button>
+                    </div>
+                }
+                
+                <div class="form-group">
+                    <label>Логин</label>
+                    <input @bind="_username" class="form-control" placeholder="admin" @onkeydown="OnEnterKey" autofocus />
+                </div>
+                
+                <div class="form-group">
+                    <label>Пароль</label>
+                    <div class="password-wrap">
+                        <input @bind="_password" type="@(_showPassword ? "text" : "password")" class="form-control" placeholder="••••••••" @onkeydown="OnEnterKey" />
+                        <button class="toggle-pwd" @onclick="TogglePassword" type="button">@(_showPassword ? "🙈" : "👁️")</button>
+                    </div>
+                </div>
+                
+                <button class="btn-login" @onclick="HandleLogin" disabled="@_loading">
+                    @if (_loading)
+                    {
+                        <span class="spinner"></span><span>Вход...</span>
+                    }
+                    else
+                    {
+                        <span>Войти</span>
+                    }
+                </button>
+                
+                <div class="form-hint">
+                    <span>По умолчанию: <strong>admin</strong> / <strong>admin</strong></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .login-page {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0a0a1a;
+        padding: 20px;
+        margin: 0;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 99999;
+    }
+    
+    .login-container {
+        display: flex;
+        width: 100%;
+        max-width: 1100px;
+        background: rgba(255,255,255,0.03);
+        backdrop-filter: blur(20px);
+        border-radius: 24px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.06);
+        box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+        animation: slideUp 0.6s ease;
+        min-height: 580px;
+    }
+    
+    @@keyframes slideUp {
+        from { opacity: 0; transform: translateY(40px) scale(0.98); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    
+    .login-brand {
+        flex: 1;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 48px 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        position: relative;
+        overflow: hidden;
+        min-width: 380px;
+    }
+    
+    .login-brand::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%);
+        animation: rotate 30s linear infinite;
+    }
+    
+    @@keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    
+    .brand-content { position: relative; z-index: 1; width: 100%; max-width: 380px; }
+    .brand-icon { font-size: 4rem; margin-bottom: 12px; display: block; }
+    .brand-content h1 { font-size: 2.2rem; font-weight: 700; margin: 0; }
+    .brand-desc { font-size: 1rem; opacity: 0.8; margin-bottom: 32px; }
+    
+    .features { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+    .feature { display: flex; align-items: center; gap: 12px; font-size: 0.9rem; opacity: 0.9; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .feature:last-child { border-bottom: none; }
+    
+    .brand-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.8rem; opacity: 0.7; }
+    .status-badge { display: flex; align-items: center; gap: 8px; }
+    .status-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: #38ef7d; animation: pulse 2s infinite; }
+    
+    @@keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+    }
+    
+    .login-form-wrap { 
+        flex: 1; 
+        padding: 48px 40px; 
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        background: transparent; 
+        min-width: 380px; 
+    }
+    
+    .login-form { 
+        width: 100%; 
+        max-width: 400px; 
+    }
+    
+    .form-header { margin-bottom: 32px; }
+    .form-header h2 { font-size: 1.8rem; font-weight: 700; color: white; margin: 0 0 4px; }
+    .form-header p { color: rgba(255,255,255,0.6); margin: 0; }
+    
+    .alert-error {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        background: rgba(255,107,122,0.1);
+        border: 1px solid rgba(255,107,122,0.2);
+        border-radius: 10px;
+        color: #ff6b7a;
+        margin-bottom: 16px;
+        font-size: 0.9rem;
+    }
+    
+    .alert-error button {
+        background: none;
+        border: none;
+        color: #ff6b7a;
+        font-size: 1.4rem;
+        cursor: pointer;
+        margin-left: auto;
+        opacity: 0.6;
+    }
+    
+    .alert-error button:hover { opacity: 1; }
+    
+    .form-group { 
+        margin-bottom: 20px; 
+        width: 100%;
+    }
+    
+    .form-group label { 
+        display: block; 
+        font-weight: 600; 
+        font-size: 0.85rem; 
+        color: rgba(255,255,255,0.6); 
+        margin-bottom: 6px; 
+    }
+    
+    /* ИСПРАВЛЕНО: все инпуты одинаковой ширины */
+    .form-control {
+        width: 100%;
+        padding: 12px 16px;
+        background: rgba(255,255,255,0.05);
+        border: 2px solid rgba(255,255,255,0.08);
+        border-radius: 10px;
+        color: white;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        box-sizing: border-box; /* ВАЖНО: учитывает padding в ширине */
+        height: 48px; /* Фиксированная высота */
+    }
+    
+    .form-control:focus {
+        border-color: #667eea;
+        outline: none;
+        box-shadow: 0 0 0 4px rgba(102,126,234,0.15);
+        background: rgba(255,255,255,0.08);
+    }
+    
+    .form-control::placeholder { color: rgba(255,255,255,0.3); }
+    
+    /* ИСПРАВЛЕНО: контейнер для пароля */
+    .password-wrap {
+        position: relative;
+        width: 100%;
+        display: flex;
+        align-items: center;
+    }
+    
+    .password-wrap .form-control {
+        padding-right: 48px;
+        width: 100%;
+    }
+    
+    .toggle-pwd {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        font-size: 1.2rem;
+        cursor: pointer;
+        opacity: 0.6;
+        padding: 4px 8px;
+        color: rgba(255,255,255,0.5);
+        z-index: 2;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .toggle-pwd:hover { 
+        opacity: 1; 
+        color: rgba(255,255,255,0.8);
+    }
+    
+    .btn-login {
+        width: 100%;
+        padding: 14px;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 1.05rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        box-shadow: 0 4px 24px rgba(102,126,234,0.3);
+        height: 48px;
+        margin-top: 8px;
+    }
+    
+    .btn-login:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 40px rgba(102,126,234,0.4); }
+    .btn-login:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    
+    .btn-login .spinner {
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255,255,255,0.2);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .form-hint { text-align: center; margin-top: 20px; font-size: 0.8rem; color: rgba(255,255,255,0.4); }
+    .form-hint strong { color: rgba(255,255,255,0.6); }
+    
+    @@media (max-width: 900px) {
+        .login-container { flex-direction: column; max-width: 480px; min-height: auto; }
+        .login-brand { padding: 32px 24px; min-width: auto; }
+        .login-brand .brand-icon { font-size: 3rem; }
+        .login-brand h1 { font-size: 1.8rem; }
+        .login-form-wrap { padding: 32px 24px; min-width: auto; }
+        .features { display: none; }
+    }
+    
+    @@media (max-width: 480px) {
+        .login-brand { padding: 24px 16px; }
+        .login-form-wrap { padding: 24px 16px; }
+        .form-header h2 { font-size: 1.5rem; }
+        .btn-login { padding: 12px; font-size: 0.95rem; }
+        .form-control { height: 44px; padding: 10px 14px; }
+        .btn-login { height: 44px; }
+    }
+</style>
+
+@code {
+    private string _username = "admin";
+    private string _password = "admin";
+    private string _error = string.Empty;
+    private bool _loading = false;
+    private bool _showPassword = false;
+
+    private void OnEnterKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") _ = HandleLogin();
+    }
+
+    private void TogglePassword() => _showPassword = !_showPassword;
+
+    private async Task HandleLogin()
+    {
+        if (string.IsNullOrWhiteSpace(_username) || string.IsNullOrWhiteSpace(_password))
+        {
+            _error = "Введите логин и пароль";
+            return;
+        }
+
+        _loading = true;
+        _error = string.Empty;
+        
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/auth/login", new { username = _username.Trim(), password = _password });
+            var result = await response.Content.ReadFromJsonAsync<LoginResult>();
+            
+            if (response.IsSuccessStatusCode && result?.Success == true && !string.IsNullOrEmpty(result.Token))
+            {
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", "auth_token", result.Token);
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", "user_name", result.User?.FullName ?? _username);
+                await JSRuntime.InvokeVoidAsync("localStorage.setItem", "user_role", result.User?.Role ?? "admin");
+                
+                Navigation.NavigateTo("/dashboard", true);
+            }
+            else
+            {
+                _error = result?.Message ?? "Ошибка входа. Проверьте логин и пароль.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Ошибка соединения: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private class LoginResult
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string? Token { get; set; }
+        public UserDto? User { get; set; }
+    }
+
+    private class UserDto
+    {
+        public string FullName { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+    }
+}

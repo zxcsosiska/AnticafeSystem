@@ -1,6 +1,6 @@
 @echo off
+chcp 65001 > nul
+echo Запуск Анти-кафе...
 cd /d "%~dp0publish"
-start AnticafeBackend.exe
-timeout /t 3 /nobreak > nul
-start http://localhost:5154
+start Anticafe.exe
 exit

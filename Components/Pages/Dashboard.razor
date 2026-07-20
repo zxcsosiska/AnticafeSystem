@@ -1,0 +1,264 @@
+@page "/dashboard"
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+
+<div class="dashboard fade-in">
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">🟢</div>
+            <div class="stat-info">
+                <div class="stat-value">@_activeSessions</div>
+                <div class="stat-label">Активных сеансов</div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">💰</div>
+            <div class="stat-info">
+                <div class="stat-value">@_todayRevenue.ToString("N0") ₽</div>
+                <div class="stat-label">Выручка сегодня</div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-info">
+                <div class="stat-value">@_totalGuests</div>
+                <div class="stat-label">Гостей сегодня</div>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">⭐</div>
+            <div class="stat-info">
+                <div class="stat-value">@_currentTariff.ToString("0.00") ₽</div>
+                <div class="stat-label">Цена за минуту</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="dashboard-grid">
+        <div class="card-glass">
+            <div class="card-header">
+                <h3>🪑 Активные сеансы</h3>
+                <span class="badge badge-primary">@_activeSessionsList.Count</span>
+            </div>
+            <div class="card-body">
+                @if (_activeSessionsList.Count == 0)
+                {
+                    <div class="empty-state">Нет активных сеансов</div>
+                }
+                else
+                {
+                    <div class="session-list">
+                        @foreach (var s in _activeSessionsList.Take(5))
+                        {
+                            <div class="session-item">
+                                <div>
+                                    <div class="session-name">@s.GuestName</div>
+                                    <div class="session-detail">Стол @s.TableNumber · @s.StartTime.ToString("HH:mm")</div>
+                                </div>
+                                <div class="session-price">@s.TotalCost.ToString("N0") ₽</div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+        
+        <div class="card-glass">
+            <div class="card-header">
+                <h3>📅 Бронирования</h3>
+                <span class="badge badge-primary">@_todayBookings.Count</span>
+            </div>
+            <div class="card-body">
+                @if (_todayBookings.Count == 0)
+                {
+                    <div class="empty-state">Нет бронирований на сегодня</div>
+                }
+                else
+                {
+                    <div class="booking-list">
+                        @foreach (var b in _todayBookings.Take(5))
+                        {
+                            <div class="booking-item">
+                                <div>
+                                    <div class="booking-name">@b.GuestName</div>
+                                    <div class="booking-detail">Стол @b.TableNumber · @b.StartTime</div>
+                                </div>
+                                <div class="booking-time">@b.DurationMinutes мин</div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .dashboard {
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 28px;
+    }
+    
+    .stat-card {
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 16px;
+        padding: 20px 24px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        background: rgba(255,255,255,0.06);
+        transform: translateY(-2px);
+    }
+    
+    .stat-icon { font-size: 2rem; }
+    .stat-value { font-size: 1.8rem; font-weight: 700; color: white; }
+    .stat-label { color: rgba(255,255,255,0.5); font-size: 0.85rem; }
+    
+    .dashboard-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+    
+    .card-glass {
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 16px;
+        overflow: hidden;
+    }
+    
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    
+    .card-header h3 { margin: 0; font-size: 1rem; font-weight: 600; color: white; }
+    .card-body { padding: 16px 20px; }
+    
+    .badge {
+        display: inline-block;
+        padding: 2px 12px;
+        border-radius: 50px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        background: rgba(102,126,234,0.2);
+        color: #667eea;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 32px 16px;
+        color: rgba(255,255,255,0.3);
+        font-size: 0.95rem;
+    }
+    
+    .session-list, .booking-list { display: flex; flex-direction: column; gap: 10px; }
+    
+    .session-item, .booking-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 14px;
+        background: rgba(255,255,255,0.02);
+        border-radius: 10px;
+        transition: all 0.3s ease;
+    }
+    
+    .session-item:hover, .booking-item:hover { background: rgba(255,255,255,0.05); }
+    
+    .session-name, .booking-name { font-weight: 600; color: white; font-size: 0.95rem; }
+    .session-detail, .booking-detail { color: rgba(255,255,255,0.4); font-size: 0.8rem; }
+    .session-price { font-weight: 700; color: #38ef7d; }
+    .booking-time { color: rgba(255,255,255,0.4); font-size: 0.8rem; }
+    
+    @@media (max-width: 992px) {
+        .dashboard-grid { grid-template-columns: 1fr; }
+    }
+    
+    @@media (max-width: 600px) {
+        .stats-grid { grid-template-columns: 1fr 1fr; }
+        .stat-card { padding: 16px; }
+        .stat-value { font-size: 1.4rem; }
+    }
+</style>
+
+@code {
+    private int _activeSessions = 0;
+    private decimal _todayRevenue = 0;
+    private int _totalGuests = 0;
+    private decimal _currentTariff = 3.5m;
+    
+    private List<SessionDto> _activeSessionsList = new();
+    private List<BookingDto> _todayBookings = new();
+    
+    private System.Timers.Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        
+        _timer = new System.Timers.Timer(10000);
+        _timer.Elapsed += async (s, e) => await InvokeAsync(LoadData);
+        _timer.Start();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var sessions = await Http.GetFromJsonAsync<List<SessionDto>>("api/session/active");
+            if (sessions != null)
+            {
+                _activeSessionsList = sessions;
+                _activeSessions = sessions.Count;
+            }
+
+            var today = DateTime.Now.ToString("yyyy-MM-dd");
+            var report = await Http.GetFromJsonAsync<RevenueReport>($"api/report/revenue?from={today}&to={today}");
+            if (report != null)
+            {
+                _todayRevenue = report.TotalRevenue;
+                _totalGuests = report.SessionsCount;
+            }
+
+            var tariff = await Http.GetFromJsonAsync<TariffResponse>("api/tariff/current");
+            if (tariff != null) _currentTariff = tariff.CurrentPricePerMinute;
+
+            var bookings = await Http.GetFromJsonAsync<List<BookingDto>>("api/booking/active");
+            if (bookings != null)
+            {
+                var todayDate = DateTime.Now.Date;
+                _todayBookings = bookings.Where(b => b.BookingDate.Date == todayDate).OrderBy(b => b.StartTime).ToList();
+            }
+
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    private class SessionDto { public int Id { get; set; } public string GuestName { get; set; } = ""; public int TableNumber { get; set; } public DateTime StartTime { get; set; } public decimal TotalCost { get; set; } }
+    private class BookingDto { public int Id { get; set; } public string GuestName { get; set; } = ""; public int TableNumber { get; set; } public DateTime BookingDate { get; set; } public string StartTime { get; set; } = ""; public int DurationMinutes { get; set; } }
+    private class RevenueReport { public decimal TotalRevenue { get; set; } public int SessionsCount { get; set; } }
+    private class TariffResponse { public decimal CurrentPricePerMinute { get; set; } }
+
+    public void Dispose() => _timer?.Dispose();
+}

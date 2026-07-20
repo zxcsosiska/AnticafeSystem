@@ -1,44 +1,54 @@
 @echo off
-title Build Anticafe
+chcp 65001 > nul
+title Сборка Анти-кафе
+
 echo ========================================
-echo    BUILDING ANTICAFE EXE
+echo    🍵 СБОРКА АНТИ-КАФЕ
 echo ========================================
 echo.
 
-cd frontend
-echo [1/3] Installing frontend...
-call npm install
+echo [0/4] Завершение предыдущих процессов...
+taskkill /f /im Anticafe.exe 2>nul
+timeout /t 1 /nobreak > nul
+
+echo [1/4] Очистка старых файлов...
+if exist publish rmdir /s /q publish
+if exist bin rmdir /s /q bin
+if exist obj rmdir /s /q obj
+
+echo [2/4] Восстановление зависимостей...
+dotnet restore
 if errorlevel 1 goto error
 
-echo [2/3] Building frontend...
-call npm run build
+echo [3/4] Сборка проекта...
+dotnet build -c Release --no-restore
 if errorlevel 1 goto error
 
-cd ..
-echo [3/3] Copying files...
-if not exist "backend\wwwroot" mkdir "backend\wwwroot"
-xcopy /E /I /Y "frontend\dist\*" "backend\wwwroot\" > nul
-
-cd backend
-echo [4/4] Building EXE (wait 2-3 min)...
-dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=none -o ../publish
-
+echo [4/4] Создание EXE файла...
+dotnet publish -c Release -r win-x64 --self-contained true ^
+    -p:PublishSingleFile=true ^
+    -p:DebugType=none ^
+    -p:IncludeNativeLibrariesForSelfExtract=true ^
+    -p:EnableCompressionInSingleFile=true ^
+    -p:CopyOutputSymbolsToPublishDirectory=false ^
+    -o publish
 if errorlevel 1 goto error
 
-cd ..
 echo.
 echo ========================================
-echo    SUCCESS!
+echo    ✅ СБОРКА ЗАВЕРШЕНА!
 echo ========================================
-echo EXE created: publish\AnticafeBackend.exe
+echo 📁 Готовый файл: publish\Anticafe.exe
 echo.
+echo 🚀 Для запуска выполните start.bat
+echo ========================================
 pause
 exit /b 0
 
 :error
 echo.
 echo ========================================
-echo    ERROR!
+echo    ❌ ОШИБКА СБОРКИ!
 echo ========================================
 pause
 exit /b 1
