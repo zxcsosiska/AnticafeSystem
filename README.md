@@ -71,16 +71,14 @@
 
 ### Системные требования
 
-- **Windows** 10/11 или **Linux** (Ubuntu 20.04+)
+- **Windows** 10/11
 - **.NET 8 Runtime** → [Скачать](https://dotnet.microsoft.com/download/dotnet/8.0)
 - **Браузер** (Chrome, Firefox, Edge)
 
 ### Сборка проекта
 
 ```bash
-# 1. Клонировать репозиторий (или распаковать архив)
-git clone https://github.com/yourusername/anticafe.git
-cd anticafe
+# 1. Распаковать архив с проектом
 
 # 2. Запустить сборку
 build.bat
@@ -156,51 +154,56 @@ http://localhost:5154/login
 ## 📁 Структура проекта
 
 ```
-Anticafe/
+AnticafeSystem/
 ├── Components/
 │   ├── Layout/
-│   │   └── MainLayout.razor      # Главный макет
-│   └── App.razor                  # Корневой компонент
+│   │   ├── MainLayout.razor      # Главный макет
+│   │   └── NavMenu.razor         # Навигационное меню
+│   └── Pages/
+│       ├── Bookings.razor        # Страница бронирований
+│       ├── Dashboard.razor       # Панель управления
+│       ├── Login.razor           # Страница входа
+│       ├── Sessions.razor        # Страница сеансов
+│       └── Settings.razor        # Страница настроек
 ├── Controllers/
-│   ├── AuthController.cs          # Авторизация
-│   ├── BookingController.cs       # Бронирования
-│   ├── ReportController.cs        # Отчёты
-│   ├── SessionController.cs       # Сеансы
-│   ├── SettingsController.cs      # Настройки
-│   └── TariffController.cs        # Тарифы
+│   ├── AuthController.cs         # Авторизация
+│   ├── BookingController.cs      # Бронирования
+│   ├── ReportController.cs       # Отчёты
+│   ├── SessionController.cs      # Сеансы
+│   ├── SettingsController.cs     # Настройки
+│   └── TariffController.cs       # Тарифы
 ├── Data/
-│   ├── ApplicationDbContext.cs    # Контекст БД
-│   └── DbInitializer.cs           # Инициализация БД
+│   ├── ApplicationDbContext.cs   # Контекст БД
+│   └── DbInitializer.cs          # Инициализация БД
 ├── Middleware/
 │   ├── ExceptionHandlingMiddleware.cs  # Обработка ошибок
 │   └── JwtMiddleware.cs                # JWT валидация
 ├── Models/
-│   ├── Booking.cs                 # Модель бронирования
-│   ├── Room.cs                    # Модель зала
-│   ├── Session.cs                 # Модель сеанса
-│   ├── Table.cs                   # Модель стола
-│   ├── Tariff.cs                  # Модель тарифа
-│   └── User.cs                    # Модель пользователя
+│   ├── Booking.cs                # Модель бронирования
+│   ├── Room.cs                   # Модель зала
+│   ├── Session.cs                # Модель сеанса
+│   ├── Table.cs                  # Модель стола
+│   ├── Tariff.cs                 # Модель тарифа
+│   └── User.cs                   # Модель пользователя
 ├── Pages/
-│   ├── _Host.cshtml               # Хост-страница
-│   ├── Bookings.razor             # Страница бронирований
-│   ├── Dashboard.razor            # Панель управления
-│   ├── Login.razor                # Страница входа
-│   ├── Sessions.razor             # Страница сеансов
-│   └── Settings.razor             # Страница настроек
+│   └── _Host.cshtml              # Хост-страница
 ├── Services/
-│   ├── AuthService.cs             # Сервис авторизации
-│   ├── BookingService.cs          # Сервис бронирований
-│   ├── JwtService.cs              # JWT генерация
-│   ├── PricingService.cs          # Расчёт стоимости
-│   └── SecurityService.cs         # Безопасность
+│   ├── AuthService.cs            # Сервис авторизации
+│   ├── BookingService.cs         # Сервис бронирований
+│   ├── JwtService.cs             # JWT генерация
+│   ├── PricingService.cs         # Расчёт стоимости
+│   └── SecurityService.cs        # Безопасность
 ├── wwwroot/
 │   └── css/
-│       └── site.css               # Глобальные стили
-├── appsettings.json               # Конфигурация
-├── Program.cs                     # Точка входа
-├── Anticafe.csproj                # Файл проекта
-└── build.bat                      # Скрипт сборки
+│       └── site.css              # Глобальные стили
+├── App.razor                     # Корневой компонент
+├── _Imports.razor                # Глобальные using
+├── appsettings.json              # Конфигурация
+├── Program.cs                    # Точка входа
+├── Anticafe.csproj               # Файл проекта
+├── README.md                     # Документация
+├── build.bat                     # Скрипт сборки
+└── start.bat                     # Скрипт запуска
 ```
 
 ---
@@ -274,7 +277,5 @@ copies or substantial portions of the Software.
 <div align="center">
 
 **🍵 Сделано с любовью для вашего анти-кафе**
-
-[![GitHub stars](https://img.shields.io/github/stars/yourusername/anticafe?style=social)](https://github.com/yourusername/anticafe)
 
 </div>
