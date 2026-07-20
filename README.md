@@ -159,12 +159,14 @@ AnticafeSystem/
 │   ├── Layout/
 │   │   ├── MainLayout.razor      # Главный макет
 │   │   └── NavMenu.razor         # Навигационное меню
-│   └── Pages/
-│       ├── Bookings.razor        # Страница бронирований
-│       ├── Dashboard.razor       # Панель управления
-│       ├── Login.razor           # Страница входа
-│       ├── Sessions.razor        # Страница сеансов
-│       └── Settings.razor        # Страница настроек
+│   ├── Pages/
+│   │   ├── Bookings.razor        # Страница бронирований
+│   │   ├── Dashboard.razor       # Панель управления
+│   │   ├── Login.razor           # Страница входа
+│   │   ├── Sessions.razor        # Страница сеансов
+│   │   └── Settings.razor        # Страница настроек
+│   ├── App.razor                 # Корневой компонент
+│   └── _Imports.razor            # Глобальные using
 ├── Controllers/
 │   ├── AuthController.cs         # Авторизация
 │   ├── BookingController.cs      # Бронирования
@@ -196,8 +198,6 @@ AnticafeSystem/
 ├── wwwroot/
 │   └── css/
 │       └── site.css              # Глобальные стили
-├── App.razor                     # Корневой компонент
-├── _Imports.razor                # Глобальные using
 ├── appsettings.json              # Конфигурация
 ├── Program.cs                    # Точка входа
 ├── Anticafe.csproj               # Файл проекта
