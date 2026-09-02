@@ -1,107 +1,442 @@
-/* ---------- ГЛОБАЛЬНЫЙ ТЕМНЫЙ ФОН ---------- */
+/* ========================================
+   ОБЩИЕ СТИЛИ
+   ======================================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
 html, body {
     background: #0a0a1a !important;
     color: #ffffff !important;
-    margin: 0;
-    padding: 0;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    height: 100%;
+}
+
+/* ========================================
+   LAYOUT (MainLayout)
+   ======================================== */
+
+.app-container {
+    display: flex;
     min-height: 100vh;
-    font-family: 'Segoe UI', -apple-system, sans-serif;
+    background: #0a0a1a;
 }
 
-/* ---------- СКРОЛЛ ---------- */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #0a0a1a; }
-::-webkit-scrollbar-thumb { background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 10px; }
+/* ---------- БОКОВОЕ МЕНЮ ---------- */
 
-/* ---------- КАРТОЧКИ ---------- */
-.card-glass {
-    background: rgba(255,255,255,0.03);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 16px;
-    padding: 24px;
-    transition: all 0.3s ease;
+.sidebar {
+    width: 220px;
+    background: #1a1a2e;
+    padding: 20px 14px;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    border-right: 1px solid #2a2a4a;
+    z-index: 100;
 }
 
-.card-glass:hover {
-    background: rgba(255,255,255,0.06);
+/* Логотип */
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: white;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #2a2a4a;
+    margin-bottom: 16px;
+}
+
+.logo span:first-child {
+    font-size: 1.8rem;
+}
+
+/* Меню */
+.menu {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.menu-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    color: #8888aa;
+    text-decoration: none;
+    font-size: 0.95rem;
+    transition: background 0.2s;
+}
+
+.menu-link:hover {
+    background: #2a2a4a;
+    color: white;
+}
+
+.menu-link.active {
+    background: #2a2a4a;
+    color: white;
+    border-left: 3px solid #667eea;
+}
+
+/* Блок пользователя */
+.user-block {
+    border-top: 1px solid #2a2a4a;
+    padding-top: 12px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: #12122a;
+    margin-bottom: 8px;
+    color: white;
+    font-size: 0.9rem;
+}
+
+.user-info span:first-child {
+    font-size: 1.2rem;
+}
+
+.btn-exit {
+    width: 100%;
+    padding: 8px;
+    background: #2a1a1a;
+    border: 1px solid #4a2a2a;
+    border-radius: 8px;
+    color: #ff6b7a;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+
+.btn-exit:hover {
+    background: #3a1a1a;
+}
+
+/* ---------- ОСНОВНОЙ КОНТЕНТ ---------- */
+
+.main-content {
+    margin-left: 220px;
+    flex: 1;
+    padding: 0;
+    background: #0a0a1a;
+}
+
+/* Шапка */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 28px;
+    background: #111122;
+    border-bottom: 1px solid #1a1a3a;
+    min-height: 60px;
+}
+
+.header h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: white;
+    margin: 0;
+}
+
+.clock {
+    color: #8888aa;
+    font-size: 0.9rem;
+}
+
+/* Контент страницы */
+.page-content {
+    padding: 24px 28px;
+}
+
+/* ========================================
+   СТАТИСТИКА (Dashboard)
+   ======================================== */
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stat-card {
+    background: #1a1a2e;
+    border: 1px solid #2a2a4a;
+    border-radius: 12px;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all 0.2s;
+}
+
+.stat-card:hover {
+    border-color: #667eea;
     transform: translateY(-2px);
 }
 
-/* ---------- КНОПКИ ---------- */
-.btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 10px 24px;
-    border-radius: 10px;
-    font-weight: 600;
-    font-size: 0.9rem;
-    border: none;
-    cursor: pointer;
-    transition: all 0.3s ease;
+.stat-icon {
+    font-size: 2.2rem;
 }
 
-.btn-primary {
-    background: linear-gradient(135deg, #667eea, #764ba2);
+.stat-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
     color: white;
-    box-shadow: 0 4px 20px rgba(102,126,234,0.3);
+    line-height: 1.2;
+}
+
+.stat-label {
+    color: #8888aa;
+    font-size: 0.85rem;
+}
+
+/* ========================================
+   КАРТОЧКИ (Dashboard)
+   ======================================== */
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.card-glass {
+    background: #1a1a2e;
+    border: 1px solid #2a2a4a;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.card-glass .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #2a2a4a;
+}
+
+.card-glass .card-header h3 {
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.card-glass .card-header .badge {
+    background: #2a2a4a;
+    color: #8888aa;
+    padding: 2px 12px;
+    border-radius: 50px;
+    font-size: 0.75rem;
+}
+
+.card-glass .card-body {
+    padding: 16px 20px;
+}
+
+/* ========================================
+   ЭЛЕМЕНТЫ В КАРТОЧКАХ
+   ======================================== */
+
+.session-item,
+.booking-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: #12122a;
+    margin-bottom: 8px;
+    transition: background 0.2s;
+}
+
+.session-item:hover,
+.booking-item:hover {
+    background: #1a1a3a;
+}
+
+.session-name,
+.booking-name {
+    font-weight: 600;
+    color: white;
+}
+
+.session-detail,
+.booking-detail {
+    color: #8888aa;
+    font-size: 0.8rem;
+}
+
+.session-price {
+    color: #38ef7d;
+    font-weight: 700;
+}
+
+.booking-time {
+    color: #8888aa;
+    font-size: 0.8rem;
+}
+
+/* ========================================
+   ПУСТЫЕ СОСТОЯНИЯ
+   ======================================== */
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #555;
+}
+
+.empty-state .empty-icon {
+    font-size: 3rem;
+    margin-bottom: 12px;
+    display: block;
+}
+
+.empty-state p {
+    color: #8888aa;
+    font-size: 0.95rem;
+    margin: 0;
+}
+
+/* ========================================
+   КНОПКИ
+   ======================================== */
+
+.btn-primary {
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
 }
 
 .btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 40px rgba(102,126,234,0.4);
+    background: #5a6fd6;
 }
 
 .btn-success {
-    background: linear-gradient(135deg, #11998e, #38ef7d);
-    color: white;
+    background: #38ef7d;
+    color: #0a0a1a;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
 }
 
 .btn-success:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 40px rgba(56,239,125,0.4);
+    background: #2dd86e;
 }
 
-/* ---------- ИНПУТЫ ---------- */
+.btn-danger {
+    background: #ff6b7a;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-danger:hover {
+    background: #e55a6a;
+}
+
+/* ========================================
+   ФОРМЫ
+   ======================================== */
+
 .form-control {
     width: 100%;
-    padding: 12px 16px;
-    background: rgba(255,255,255,0.05);
-    border: 2px solid rgba(255,255,255,0.08);
-    border-radius: 10px;
+    padding: 10px 14px;
+    background: #12122a;
+    border: 1px solid #2a2a4a;
+    border-radius: 8px;
     color: white;
     font-size: 0.95rem;
-    transition: all 0.3s ease;
 }
 
 .form-control:focus {
     border-color: #667eea;
     outline: none;
-    box-shadow: 0 0 0 4px rgba(102,126,234,0.15);
-    background: rgba(255,255,255,0.08);
 }
 
-.form-control::placeholder { color: rgba(255,255,255,0.3); }
-
-/* ---------- УТИЛИТЫ ---------- */
-.text-muted { color: rgba(255,255,255,0.4); }
-.text-secondary { color: rgba(255,255,255,0.6); }
-.mt-2 { margin-top: 8px; }
-.mt-3 { margin-top: 16px; }
-.mb-3 { margin-bottom: 16px; }
-.d-flex { display: flex; }
-.align-center { align-items: center; }
-.justify-between { justify-content: space-between; }
-.gap-2 { gap: 8px; }
-.gap-3 { gap: 16px; }
-.w-100 { width: 100%; }
-
-/* ---------- АНИМАЦИИ ---------- */
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(12px); }
-    to { opacity: 1; transform: translateY(0); }
+.form-control::placeholder {
+    color: #555;
 }
 
-.fade-in { animation: fadeIn 0.4s ease; }
+/* ========================================
+   АДАПТИВ
+   ======================================== */
+
+@media (max-width: 992px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        width: 200px;
+        transform: translateX(-100%);
+    }
+    
+    .main-content {
+        margin-left: 0;
+    }
+    
+    .header {
+        padding: 12px 16px;
+    }
+    
+    .page-content {
+        padding: 16px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .stat-card {
+        padding: 16px;
+    }
+    
+    .stat-value {
+        font-size: 1.4rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}

@@ -8,6 +8,7 @@
 ![.NET](https://img.shields.io/badge/.NET-8.0-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Status](https://img.shields.io/badge/status-beta-orange)
+![Build](https://img.shields.io/badge/build-passing-brightgreen)
 
 </div>
 
@@ -38,19 +39,19 @@
 | **📊 Отчёты** | Статистика по выручке, загруженности, посещаемости |
 | **⚙️ Настройки** | Управление залами, столами, тарифами |
 
-### Безопасность
+### 🔐 Безопасность
 
-- 🔐 JWT-аутентификация
-- 🔒 BCrypt-хеширование паролей с солью
-- 🛡️ Блокировка аккаунта после 3 неудачных попыток входа
-- 🚫 Защита API через `[Authorize]` атрибуты
+- JWT-аутентификация
+- BCrypt-хеширование паролей с солью
+- Блокировка аккаунта после 3 неудачных попыток входа
+- Защита API через `[Authorize]` атрибуты
 
-### Интерфейс
+### 🎨 Интерфейс
 
-- 🌙 Современный Dark Theme
-- ✨ Glassmorphism-эффекты
-- 📱 Адаптивный дизайн
-- 🎨 Единый стиль всех страниц
+- Современный Dark Theme
+- Glassmorphism-эффекты
+- Адаптивный дизайн
+- Единый стиль всех страниц
 
 ---
 
@@ -72,10 +73,10 @@
 ### Системные требования
 
 - **Windows** 10/11
-- **.NET 8 Runtime** → [Скачать](https://dotnet.microsoft.com/download/dotnet/8.0)
+- **.NET 8 SDK** → [Скачать](https://dotnet.microsoft.com/download/dotnet/8.0)
 - **Браузер** (Chrome, Firefox, Edge)
 
-### Сборка проекта
+### Быстрая сборка
 
 ```bash
 # 1. Распаковать архив с проектом
@@ -277,5 +278,7 @@ copies or substantial portions of the Software.
 <div align="center">
 
 **🍵 Сделано с любовью для вашего анти-кафе**
+
+⭐ **Если проект вам понравился, поставьте звезду!** ⭐
 
 </div>
