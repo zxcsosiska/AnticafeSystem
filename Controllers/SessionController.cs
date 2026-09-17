@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Anticafe.Data;
 using Anticafe.Models;
-using Anticafe.Services;
 
 namespace Anticafe.Controllers;
 
@@ -13,12 +12,10 @@ namespace Anticafe.Controllers;
 public class SessionController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
-    private readonly PricingService _pricing;
 
-    public SessionController(ApplicationDbContext context, PricingService pricing)
+    public SessionController(ApplicationDbContext context)
     {
         _context = context;
-        _pricing = pricing;
     }
 
     [HttpGet("active")]
@@ -39,11 +36,9 @@ public class SessionController : ControllerBase
                 s.DurationMinutes,
                 s.TariffRate,
                 s.TotalCost,
-                s.IsActive,
-                s.CreatedAt
+                s.IsActive
             })
             .ToListAsync();
-
         return Ok(sessions);
     }
 
@@ -57,46 +52,18 @@ public class SessionController : ControllerBase
         return Ok(tables);
     }
 
-    [HttpGet("rooms")]
-    public async Task<IActionResult> GetRooms()
-    {
-        var rooms = await _context.Rooms
-            .Where(r => r.IsActive)
-            .Select(r => new { r.Id, r.Name, r.Type })
-            .ToListAsync();
-        return Ok(rooms);
-    }
-
     [HttpGet("available-tables")]
-    public async Task<IActionResult> GetAvailableTables(DateTime startTime, int durationMinutes, int roomId)
+    public async Task<IActionResult> GetAvailableTables()
     {
-        if (durationMinutes < 30)
-            return BadRequest(new { error = "Минимальная длительность - 30 минут" });
+        var busy = await _context.Sessions.Where(s => s.IsActive).Select(s => s.TableNumber).ToListAsync();
+        var booked = await _context.Bookings.Where(b => b.Status == "active" && b.BookingDate.Date >= DateTime.Now.Date).Select(b => b.TableNumber).ToListAsync();
+        var allBusy = busy.Union(booked).Distinct().ToList();
 
-        var endTime = startTime.AddMinutes(durationMinutes);
-        var date = startTime.Date;
-
-        var busyTables = await _context.Sessions
-            .Where(s => s.IsActive)
-            .Select(s => s.TableNumber)
-            .ToListAsync();
-
-        var bookedTables = await _context.Bookings
-            .Where(b => b.Status == "active" &&
-                        b.BookingDate.Date == date &&
-                        b.StartTime.CompareTo(endTime.ToString("HH:mm")) < 0 &&
-                        (b.EndTime == null || b.EndTime.CompareTo(startTime.ToString("HH:mm")) > 0))
-            .Select(b => b.TableNumber)
-            .ToListAsync();
-
-        var allBusy = busyTables.Union(bookedTables).Distinct().ToList();
-
-        var availableTables = await _context.Tables
-            .Where(t => t.IsActive && t.RoomId == roomId && !allBusy.Contains(t.TableNumber))
+        var available = await _context.Tables
+            .Where(t => t.IsActive && !allBusy.Contains(t.TableNumber))
             .Select(t => new { t.Id, t.TableNumber, t.RoomId })
             .ToListAsync();
-
-        return Ok(availableTables);
+        return Ok(available);
     }
 
     [HttpPost("start")]
@@ -105,33 +72,19 @@ public class SessionController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.GuestName))
             return BadRequest(new { error = "Введите имя гостя" });
 
-        if (request.TableNumber <= 0)
-            return BadRequest(new { error = "Выберите стол" });
-
         if (request.DurationMinutes < 30)
-            return BadRequest(new { error = "Минимальная длительность - 30 минут" });
-
-        if (request.RoomId <= 0)
-            return BadRequest(new { error = "Выберите зал" });
+            return BadRequest(new { error = "Минимум 30 минут" });
 
         var table = await _context.Tables
             .FirstOrDefaultAsync(t => t.TableNumber == request.TableNumber && t.RoomId == request.RoomId && t.IsActive);
+        if (table == null) return BadRequest(new { error = "Стол не найден" });
 
-        if (table == null)
-            return BadRequest(new { error = "Стол не найден в выбранном зале" });
+        var isBusy = await _context.Sessions.AnyAsync(s => s.IsActive && s.TableNumber == request.TableNumber);
+        if (isBusy) return BadRequest(new { error = "Стол занят" });
 
-        var isBusy = await _context.Sessions
-            .AnyAsync(s => s.IsActive && s.TableNumber == request.TableNumber);
-
-        if (isBusy)
-            return BadRequest(new { error = "Стол уже занят" });
-
-        var startTime = request.StartTime ?? DateTime.Now;
-        if (startTime.Kind == DateTimeKind.Utc)
-            startTime = startTime.ToLocalTime();
-
-        var currentPrice = await _pricing.GetCurrentTariffAsync(startTime);
-        var totalCost = request.DurationMinutes * currentPrice;
+        var tariff = await _context.Tariffs.FirstOrDefaultAsync(t => t.IsActive);
+        var price = tariff?.PricePerMinute ?? 3.5m;
+        var totalCost = request.DurationMinutes * price;
 
         var session = new Session
         {
@@ -139,10 +92,10 @@ public class SessionController : ControllerBase
             Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
             TableNumber = request.TableNumber,
             RoomId = request.RoomId,
-            StartTime = startTime,
+            StartTime = DateTime.Now,
             PlannedDurationMinutes = request.DurationMinutes,
             DurationMinutes = request.DurationMinutes,
-            TariffRate = currentPrice,
+            TariffRate = price,
             TotalCost = totalCost,
             IsActive = true,
             CreatedAt = DateTime.Now
@@ -151,66 +104,31 @@ public class SessionController : ControllerBase
         _context.Sessions.Add(session);
         await _context.SaveChangesAsync();
 
-        return Ok(new
-        {
-            session.Id,
-            session.GuestName,
-            session.Phone,
-            session.TableNumber,
-            session.RoomId,
-            StartTime = startTime.ToString("yyyy-MM-dd HH:mm:ss"),
-            session.PlannedDurationMinutes,
-            session.DurationMinutes,
-            session.TariffRate,
-            session.TotalCost,
-            session.IsActive
-        });
+        return Ok(new { session.Id, session.GuestName, session.TableNumber, session.StartTime, session.TotalCost });
     }
 
     [HttpPost("end/{id}")]
     public async Task<IActionResult> EndSession(int id)
     {
         var session = await _context.Sessions.FindAsync(id);
-        if (session == null)
-            return NotFound(new { error = "Сеанс не найден" });
+        if (session == null) return NotFound(new { error = "Сеанс не найден" });
+        if (!session.IsActive) return BadRequest(new { error = "Уже завершён" });
 
-        if (!session.IsActive)
-            return BadRequest(new { error = "Сеанс уже завершён" });
+        var actualMinutes = (int)Math.Ceiling((DateTime.Now - session.StartTime).TotalMinutes);
+        if (actualMinutes < 30) actualMinutes = 30;
 
-        var endTime = DateTime.Now;
-        var actualMinutes = (int)Math.Ceiling((endTime - session.StartTime).TotalMinutes);
+        var tariff = await _context.Tariffs.FirstOrDefaultAsync(t => t.IsActive);
+        var price = tariff?.PricePerMinute ?? 3.5m;
 
-        if (actualMinutes < 30)
-            actualMinutes = 30;
-
-        var currentPrice = await _pricing.GetCurrentTariffAsync(session.StartTime);
-        var totalCost = actualMinutes * currentPrice;
-
-        session.EndTime = endTime;
+        session.EndTime = DateTime.Now;
         session.DurationMinutes = actualMinutes;
-        session.TariffRate = currentPrice;
-        session.TotalCost = totalCost;
+        session.TariffRate = price;
+        session.TotalCost = actualMinutes * price;
         session.IsActive = false;
 
         await _context.SaveChangesAsync();
 
-        return Ok(new
-        {
-            session.Id,
-            session.GuestName,
-            session.Phone,
-            session.TableNumber,
-            StartTime = session.StartTime.ToString("yyyy-MM-dd HH:mm:ss"),
-            EndTime = session.EndTime.Value.ToString("yyyy-MM-dd HH:mm:ss"),
-            PlannedDurationMinutes = session.PlannedDurationMinutes,
-            ActualDurationMinutes = actualMinutes,
-            Hours = actualMinutes / 60,
-            Minutes = actualMinutes % 60,
-            session.TariffRate,
-            session.TotalCost,
-            Date = DateTime.Now.ToString("dd.MM.yyyy HH:mm"),
-            Message = actualMinutes >= 120 ? "Спасибо за долгий визит! 😊" : "Спасибо за посещение! 🍵"
-        });
+        return Ok(new { session.Id, session.GuestName, ActualDurationMinutes = actualMinutes, session.TotalCost });
     }
 }
 
@@ -220,6 +138,5 @@ public class StartSessionRequest
     public string? Phone { get; set; }
     public int TableNumber { get; set; }
     public int RoomId { get; set; } = 1;
-    public DateTime? StartTime { get; set; }
     public int DurationMinutes { get; set; } = 30;
 }

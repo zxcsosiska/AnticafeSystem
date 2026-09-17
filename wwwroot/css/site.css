@@ -440,3 +440,38 @@ html, body {
         grid-template-columns: 1fr;
     }
 }
+
+.form-control-glass.error {
+    border-color: #ff6b7a !important;
+    box-shadow: 0 0 0 2px rgba(255,107,122,0.2);
+}
+
+.text-danger-glass {
+    color: #ff6b7a;
+    font-size: 0.75rem;
+    margin-top: 4px;
+}
+
+.text-hint-glass {
+    color: rgba(255,255,255,0.3);
+    font-size: 0.7rem;
+    margin-top: 2px;
+}
+
+.alert-error-glass {
+    padding: 12px 16px;
+    background: rgba(255,107,122,0.1);
+    border: 1px solid rgba(255,107,122,0.2);
+    border-radius: 10px;
+    color: #ff6b7a;
+    font-size: 0.9rem;
+}
+
+.alert-success-glass {
+    padding: 12px 16px;
+    background: rgba(56,239,125,0.1);
+    border: 1px solid rgba(56,239,125,0.2);
+    border-radius: 10px;
+    color: #38ef7d;
+    font-size: 0.9rem;
+}
